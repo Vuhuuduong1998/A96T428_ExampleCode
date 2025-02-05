@@ -1,0 +1,240 @@
+A51 MACRO ASSEMBLER  DELAY                                                                01/09/2025 13:29:41 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\out\delay.OBJ
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE .\out\delay.src PR(.\out\delay.ls1) EP DEBUG
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ; .\out\delay.SRC generated from: src\delay.c
+                       2     ; COMPILER INVOKED BY:
+                       3     ;        C:\Keil_v5\C51\BIN\C51.EXE src\delay.c LARGE OPTIMIZE(8,SPEED) BROWSE NOAREGS INCD
+                             IR(..\..\Driver;.\src) DEBUG OBJECTEXTEND PRINT(.\out\delay.lst) TABS(2) SRC(.\out\delay.SRC)
+                       4     
+                       5     
+                       6     NAME    DELAY
+                       7     
+                       8     ?PR?NOP_1us_Delay?DELAY                  SEGMENT CODE 
+                       9     ?PR?_NOP_10us_Delay?DELAY                SEGMENT CODE 
+                      10             PUBLIC  _NOP_10us_Delay
+                      11             PUBLIC  NOP_1us_Delay
+                      12     ; /**
+                      13     ;  *******************************************************************************
+                      14     ;  * @file        delay.c
+                      15     ;  * @author      ABOV R&D Division
+                      16     ;  * @brief       DELAY Source File
+                      17     ;  *
+                      18     ;  * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+                      19     ;  *
+                      20     ;  * This file is licensed under terms that are found in the LICENSE file
+                      21     ;  * located at Document directory.
+                      22     ;  * If this file is delivered or shared without applicable license terms,
+                      23     ;  * the terms of the BSD-3-Clause license shall be applied.
+                      24     ;  * Reference: https://opensource.org/licenses/BSD-3-Clause
+                      25     ;  ******************************************************************************/
+                      26     ; 
+                      27     ; /* Includes ------------------------------------------------------------------*/
+                      28     ; #include    "typedef.h"
+                      29     ; #include    "Intrins.h"
+                      30     ; #include    "delay.h"       //
+                      31     ; /* Private Pre-processor Definition & Macro ----------------------------------*/
+                      32     ; /* Private Typedef -----------------------------------------------------------*/
+                      33     ; /* Private Variable ----------------------------------------------------------*/
+                      34     ; /* Private Function Prototype ------------------------------------------------*/
+                      35     ; /* Public Variable -----------------------------------------------------------*/
+                      36     ; /* Public Function -----------------------------------------------------------*/
+                      37     ; /**
+                      38     ; * @brief    System NOP 1us Delay rountine. (MCLK = 16MHZ)
+                      39     ; * @note     1 machine cycle comprises 2 system clock cycles. (@ABOV 96 Core Serise)
+                      40     ; *           16 system clock delay
+                      41     ; * @param    None
+                      42     ; * @return   None
+                      43     ; */
+                      44     ; volatile void NOP_1us_Delay(void)
+                      45     
+----                  46             RSEG  ?PR?NOP_1us_Delay?DELAY
+0000                  47     NOP_1us_Delay:
+                      48                             ; SOURCE LINE # 33
+                      49     ; {
+                      50                             ; SOURCE LINE # 34
+                      51     ;     // ACALL, LCALL : 2 cycle => 4 system clock cycle
+                      52     ;     NOP; NOP; NOP; NOP;     // NOP : 1 cycle => 2 sys. clock => 8 sys. clk
+                      53                             ; SOURCE LINE # 36
+0000 00               54             NOP     
+0001 00               55             NOP     
+0002 00               56             NOP     
+0003 00               57             NOP     
+A51 MACRO ASSEMBLER  DELAY                                                                01/09/2025 13:29:41 PAGE     2
+
+                      58     ;     // RET : 2 cycle => 4 system clock cycle
+                      59     ;     // 16 sys. clk @16MHZ = 62.5ns x 16 = 1us
+                      60     ; }
+                      61                             ; SOURCE LINE # 39
+0004 22               62             RET     
+                      63     ; END OF NOP_1us_Delay
+                      64     
+                      65     ; /**
+                      66     ; * @brief    System NOP 10us Delay rountine. (MCLK = 16MHZ)
+                      67     ; * @note     1 machine cycle comprises 2 system clock cycles. (@ABOV 96 Core Serise)
+                      68     ; *           160 system clock delay
+                      69     ; *           1 machine cycle can be added depending on code optimization.
+                      70     ; *
+                      71     ; *           ex1)    MOV R7,#(Low byte of delay)
+                      72     ; *                   MOV R6,#(high byte of delay)
+                      73     ; *                   LCALL   NOP_10us_Delay
+                      74     ; *
+                      75     ; *           ex2)    MOV A,#(Low byte of delay) // Lower byte and higher byte are the same.
+                      76     ; *                   MOV R7,A
+                      77     ; *                   MOV R6,A
+                      78     ; *                   LCALL   NOP_10us_Delay
+                      79     ; *
+                      80     ; * @param    delay : unsigned int 1~65,355 (delay) * 10us (@System clock = 16Mhz)
+                      81     ; * @return   None
+                      82     ; */
+                      83     ; volatile void NOP_10us_Delay(unsigned int delay)
+                      84     
+----                  85             RSEG  ?PR?_NOP_10us_Delay?DELAY
+0000                  86     _NOP_10us_Delay:
+                      87             USING   0
+                      88                             ; SOURCE LINE # 58
+                      89     ; {
+                      90                             ; SOURCE LINE # 59
+                      91     ;     // mov r7 <- low byte of delay      // 1cycle
+                      92     ;     // mov r6 <- high byte of delay     // 1cycle
+                      93     ;     // lcall NOP_10us_Delay             // 2cycle
+                      94     ;     
+                      95     ;     // dummy assignment to avoid warning
+                      96     ;     // 'unreferenced local variable'
+                      97     ;     // Reference Link : http://www.keil.com/support/docs/2622.htm
+                      98     ;     // delay -> [r6:r7]
+                      99     ;     
+                     100     ;     delay = delay;  // dummy
+                     101                             ; SOURCE LINE # 69
+                     102     ;                     
+                     103     ;     #pragma asm
+                     104     ;         lcall   NOP_1us_Delay
+0000 120000   F      105               lcall   NOP_1us_Delay
+                     106     ;         lcall   NOP_1us_Delay
+0003 120000   F      107               lcall   NOP_1us_Delay
+                     108     ;         lcall   NOP_1us_Delay
+0006 120000   F      109               lcall   NOP_1us_Delay
+                     110     ;         lcall   NOP_1us_Delay
+0009 120000   F      111               lcall   NOP_1us_Delay
+                     112     ;         lcall   NOP_1us_Delay
+000C 120000   F      113               lcall   NOP_1us_Delay
+                     114     ;         lcall   NOP_1us_Delay
+000F 120000   F      115               lcall   NOP_1us_Delay
+                     116     ;         lcall   NOP_1us_Delay
+0012 120000   F      117               lcall   NOP_1us_Delay
+                     118     ;         lcall   NOP_1us_Delay
+0015 120000   F      119               lcall   NOP_1us_Delay
+                     120     ;         clr     c                           // 1cycle
+0018 C3              121               clr     c                            
+                     122     ;         mov     a,r7                        // 1cycle
+0019 EF              123               mov     a,r7                         
+A51 MACRO ASSEMBLER  DELAY                                                                01/09/2025 13:29:41 PAGE     3
+
+                     124     ;         subb    a,#2                        // 1cycle
+001A 9402            125               subb    a,#2                         
+                     126     ;         mov     r7,a                        // 1cycle
+001C FF              127               mov     r7,a                         
+                     128     ;         mov     a,r6                        // 1cycle
+001D EE              129               mov     a,r6                         
+                     130     ;         subb    a,#0                        // 1cycle
+001E 9400            131               subb    a,#0                         
+                     132     ;         mov     r6,a                        // 1cycle
+0020 FE              133               mov     r6,a                         
+                     134     ;         jc     _nop_10us_delay_loop_end     // 2cycle
+0021 402A            135               jc     _nop_10us_delay_loop_end      
+                     136     ;         
+                     137               
+                     138     ;     _nop_10us_delay_loop:
+0023                 139               _nop_10us_delay_loop:
+                     140     ;         lcall   NOP_1us_Delay
+0023 120000   F      141               lcall   NOP_1us_Delay
+                     142     ;         lcall   NOP_1us_Delay
+0026 120000   F      143               lcall   NOP_1us_Delay
+                     144     ;         lcall   NOP_1us_Delay
+0029 120000   F      145               lcall   NOP_1us_Delay
+                     146     ;         lcall   NOP_1us_Delay
+002C 120000   F      147               lcall   NOP_1us_Delay
+                     148     ;         lcall   NOP_1us_Delay
+002F 120000   F      149               lcall   NOP_1us_Delay
+                     150     ;         lcall   NOP_1us_Delay
+0032 120000   F      151               lcall   NOP_1us_Delay
+                     152     ;         lcall   NOP_1us_Delay
+0035 120000   F      153               lcall   NOP_1us_Delay
+                     154     ;         lcall   NOP_1us_Delay
+0038 120000   F      155               lcall   NOP_1us_Delay
+                     156     ;         nop
+003B 00              157               nop
+                     158     ;         nop
+003C 00              159               nop
+                     160     ;         nop
+003D 00              161               nop
+                     162     ;         nop
+003E 00              163               nop
+                     164     ;         nop
+003F 00              165               nop
+                     166     ;         nop
+0040 00              167               nop
+                     168     ;         nop
+0041 00              169               nop
+                     170     ;         
+                     171               
+                     172     ;         clr     c                           // 1cycle
+0042 C3              173               clr     c                            
+                     174     ;         mov     a,r7                        // 1cycle
+0043 EF              175               mov     a,r7                         
+                     176     ;         subb    a,#1                        // 1cycle
+0044 9401            177               subb    a,#1                         
+                     178     ;         mov     r7,a                        // 1cycle
+0046 FF              179               mov     r7,a                         
+                     180     ;         mov     a,r6                        // 1cycle
+0047 EE              181               mov     a,r6                         
+                     182     ;         subb    a,#0                        // 1cycle
+0048 9400            183               subb    a,#0                         
+                     184     ;         mov     r6,a                        // 1cycle
+004A FE              185               mov     r6,a                         
+                     186     ;         jnc     _nop_10us_delay_loop        // 2cycle
+004B 50D6            187               jnc     _nop_10us_delay_loop         
+                     188     ; 
+                     189               
+A51 MACRO ASSEMBLER  DELAY                                                                01/09/2025 13:29:41 PAGE     4
+
+                     190     ;     _nop_10us_delay_loop_end:
+004D                 191               _nop_10us_delay_loop_end:
+                     192     ;         nop                                 // 1cycle
+004D 00              193               nop                                  
+                     194     ;         
+                     195               
+                     196     ;     #pragma endasm
+                     197     ;                                             // ret 2cycle
+                     198     ; }
+                     199                             ; SOURCE LINE # 120
+004E 22              200             RET     
+                     201     ; END OF _NOP_10us_Delay
+                     202     
+                     203             END
+A51 MACRO ASSEMBLER  DELAY                                                                01/09/2025 13:29:41 PAGE     5
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E                    T Y P E  V A L U E   ATTRIBUTES
+
+?PR?NOP_1US_DELAY?DELAY .  C SEG    0005H       REL=UNIT
+?PR?_NOP_10US_DELAY?DELAY  C SEG    004FH       REL=UNIT
+DELAY . . . . . . . . . .  N NUMB   -----       
+NOP_1US_DELAY . . . . . .  C ADDR   0000H   R   SEG=?PR?NOP_1US_DELAY?DELAY
+_NOP_10US_DELAY . . . . .  C ADDR   0000H   R   SEG=?PR?_NOP_10US_DELAY?DELAY
+_NOP_10US_DELAY_LOOP. . .  C ADDR   0023H   R   SEG=?PR?_NOP_10US_DELAY?DELAY
+_NOP_10US_DELAY_LOOP_END.  C ADDR   004DH   R   SEG=?PR?_NOP_10US_DELAY?DELAY
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

@@ -1,0 +1,238 @@
+C51 COMPILER V9.60.7.0   A96T428_CLOCK                                                     02/05/2025 09:26:17 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE A96T428_CLOCK
+OBJECT MODULE PLACED IN .\out\a96T428_clock.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE ..\..\Driver\a96T428_clock.c LARGE OPTIMIZE(9,SPEED) BROWSE INCDIR(..\..
+                    -\Driver;.\src) DEBUG OBJECTEXTEND PRINT(.\out\a96T428_clock.lst) TABS(2) OBJECT(.\out\a96T428_clock.obj)
+
+line level    source
+
+   1          /**
+   2           *******************************************************************************
+   3           * @file        a96T428_clock.c
+   4           * @author      ABOV R&D Division
+   5           * @brief       Clock Source File
+   6           *
+   7           * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+   8           *
+   9           * This file is licensed under terms that are found in the LICENSE file
+  10           * located at Document directory.
+  11           * If this file is delivered or shared without applicable license terms,
+  12           * the terms of the BSD-3-Clause license shall be applied.
+  13           * Reference: https://opensource.org/licenses/BSD-3-Clause
+  14           ******************************************************************************/
+  15          
+  16          
+  17          /*******************************************************************************
+  18          * Included File
+  19          *******************************************************************************/
+  20          #include "a96T428_clock.h"
+  21          #include "delay.h"
+  22          
+  23          /*******************************************************************************
+  24          * Private Pre-processor Definition & Macro
+  25          *******************************************************************************/
+  26          
+  27          /*******************************************************************************
+  28          * Private Typedef
+  29          *******************************************************************************/
+  30          
+  31          /*******************************************************************************
+  32          * Private Variable
+  33          *******************************************************************************/
+  34          
+  35          /*******************************************************************************
+  36          * Private Function Prototype
+  37          *******************************************************************************/
+  38          
+  39          /*******************************************************************************
+  40          * Public Function
+  41          *******************************************************************************/
+  42          
+  43          /**
+  44          * @brief  Initialize System Clock peripheral
+  45          * @param    clock_sel This parameter contains the selection of clock.
+  46          * @return None
+  47          */
+  48          void System_Clock_Initial(uint8_t clock_sel)
+  49          {
+  50   1          uint8_t temp_reg;
+  51   1        if(clock_sel <= HSI16_DIV1)
+  52   1        {
+  53   2          /* Internal 16Mhz RC OSC for system clock */
+  54   2          SCCR  = SCCR_IRC_16MHZ;            
+C51 COMPILER V9.60.7.0   A96T428_CLOCK                                                     02/05/2025 09:26:17 PAGE 2   
+
+  55   2          /* Internal RC Oscillator Post-divider Select INT-RC/n (32/n MHz) */
+  56   2          temp_reg = OSCCR;
+  57   2          temp_reg  &= ~(0x7 << 3);
+  58   2          temp_reg  |= (clock_sel << 3) | OSCCR_HIRCE_EN;
+  59   2          OSCCR = temp_reg;
+  60   2        }
+  61   1        else if(clock_sel == LSI)
+  62   1        {
+  63   2      #if A96T418_MODE==1
+                  /* Internal 128khz RC OSC for system clock */
+                    //OSCCR |= OSCCR_LSIRCE_EN;
+                      //NOP_10us_Delay(1000); //1ms
+                  SCCR  = SCCR_IRC_128KHZ;   
+              #endif    
+  69   2      #if A96T418_MODE==0
+  70   2          /* Internal 32khz RC OSC for system clock */
+  71   2          SCCR  = SCCR_IRC_32KHZ;   
+  72   2      #endif    
+  73   2        }
+  74   1      #if A96T418_MODE==1
+                else if(clock_sel == HSE)
+                { 
+                }
+                else if(clock_sel == LSE)
+                {
+                  if(P2PU&0xC0)
+                    P2PU&=~0xC0; //P27/SXIN, P26/SXOUT  pullup disable 
+                  /* Alternative Function for External Sub OSC  */
+                  P2FSRH = (0x1 << 6) | (0x1 << 4); //P27/SXIN, P26/SXOUT 
+              
+                  /* External Sub OSC for system clock */
+                    OSCCR |= OSCCR_SCLKE_EN;
+                      NOP_10us_Delay(1000); 
+                      SCCR  = SCCR_EXT_SOSC;   
+                }
+              #endif    
+  91   1      }
+  92          
+  93          /**
+  94          * @brief  Controls clock frequency selection and oscillator operation.
+  95          * @param    osc_sel   This parameter contains the selection of Oscillator.
+  96          *
+  97          *         - LSIRC  = 0
+  98          *         - HSIRC  = 1
+  99          *         - NULLXCLK   = 2
+ 100          *         - SUBCLK   = 3
+ 101          * @param    hsirc_div   This parameter contains the Post-divider Selection of Internal RC Oscillator.
+ 102          *
+ 103          *         - INTRC32_DIV64 = 0
+ 104          *         - INTRC32_DIV32 = 1
+ 105          *         - INTRC32_DIV16 = 2
+ 106          *         - INTRC32_DIV8  = 3
+ 107          *         - INTRC32_DIV4  = 4
+ 108          *         - INTRC32_DIV2  = 5
+ 109          * @param    osc_enable  This parameter contains the enable of oscillator.
+ 110          *
+ 111          *         - OSC_DIS  = 0
+ 112          *         - OSC_EN   = 1
+ 113          * @return None
+ 114          */
+ 115          void Clock_ConfigureOSC(uint8_t osc_sel, uint8_t hsirc_div, uint8_t osc_enable)
+ 116          {
+C51 COMPILER V9.60.7.0   A96T428_CLOCK                                                     02/05/2025 09:26:17 PAGE 3   
+
+ 117   1        uint8_t temp_reg;
+ 118   1        
+ 119   1        if(osc_sel == LSIRC)
+ 120   1        {
+ 121   2          if(osc_enable == OSC_DIS)
+ 122   2              {
+ 123   3                  /* Disable Low Frequency(128kHz) Internal RC OSC for system clock at stop mode */
+ 124   3                  OSCCR &= ~(0x1 << 6);
+ 125   3              }
+ 126   2              else if(osc_enable == OSC_EN)
+ 127   2              {
+ 128   3                  /* Enable Low Frequency(128kHz) Internal RC OSC for system clock at stop mode */
+ 129   3                  OSCCR |= (osc_enable << 6);
+ 130   3              }            
+ 131   2        }
+ 132   1        else if(osc_sel == HSIRC)
+ 133   1        {
+ 134   2              if(osc_enable == OSC_DIS)
+ 135   2              {
+ 136   3                  /* Disable High Frequency(16MHz) Internal RC OSC for system clock */
+ 137   3                  OSCCR |= (0x1 << 2);          
+ 138   3              }
+ 139   2              else if(osc_enable == OSC_EN)
+ 140   2              {
+ 141   3            temp_reg = OSCCR;
+ 142   3                  /* Enable High Frequency(16MHz) Internal RC OSC for system clock */
+ 143   3                  temp_reg &= ~(osc_enable << 2);
+ 144   3                  
+ 145   3                  temp_reg &= ~(0x7<<3);
+ 146   3                  temp_reg |= (hsirc_div<<3);
+ 147   3            
+ 148   3            OSCCR = temp_reg;
+ 149   3              }
+ 150   2        }
+ 151   1        else if(osc_sel == NULLXCLK)
+ 152   1        {
+ 153   2        }
+ 154   1      #if A96T418_MODE==1     
+                else if(osc_sel == SUBCLK)
+                {
+                      if(osc_enable == OSC_DIS)
+                      {
+                          /* Disable External Sub OSC for system clock */
+                          OSCCR  &= ~(0x1 << 0);            
+                      }
+                      else if(osc_enable == OSC_EN)
+                      {
+                    if(P2PU&0xC0)
+                      P2PU&=~0xC0; //P27/SXIN, P26/SXOUT  pullup disable 
+                          /* Alternative Function for External Sub OSC  */
+                          P2FSRH = (0x1 << 6) | (0x1 << 4); //P27/SXIN, P26/SXOUT 
+                          /* Enable External Sub OSC for system clock */
+                          OSCCR  |= (osc_enable << 0);
+                    NOP_10us_Delay(10000);  //100ms
+                          OSCCR  |= (osc_enable << 0);      
+                     }
+                }
+              #endif
+ 175   1      }
+ 176          
+ 177          /**
+ 178          * @brief    Get Systemclock frequency(speed)
+C51 COMPILER V9.60.7.0   A96T428_CLOCK                                                     02/05/2025 09:26:17 PAGE 4   
+
+ 179          * @param   None
+ 180          * @return   The value of system clock(frequency)
+ 181          */
+ 182          uint32_t Clock_GetSystemFreq(void)
+ 183          {
+ 184   1        uint32_t shift=(OSCCR>>3)&0x07; 
+ 185   1        uint32_t sysclk=0;
+ 186   1        if(shift>5) 
+ 187   1          shift=5;
+ 188   1        shift=5-shift;
+ 189   1        switch(SCCR&0x03) {
+ 190   2        case SCCR_IRC_16MHZ : sysclk=16000000UL>>shift;
+ 191   2          break;
+ 192   2      #if A96T418_MODE==1     
+                case SCCR_EXT_SOSC : sysclk=32768UL;
+                  break;
+                case SCCR_IRC_128KHZ : sysclk=128000UL;
+                  break;
+              #endif    
+ 198   2      #if A96T418_MODE==0     
+ 199   2        case SCCR_IRC_32KHZ : sysclk=32768UL;
+ 200   2          break;
+ 201   2      #endif    
+ 202   2        }
+ 203   1        return sysclk;
+ 204   1        
+ 205   1        //return SYSTEM_CLOCK;
+ 206   1      }
+ 207          
+ 208          /* --------------------------------- End Of File ------------------------------ */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    260    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       8
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

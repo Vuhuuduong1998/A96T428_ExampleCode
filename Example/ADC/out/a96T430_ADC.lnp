@@ -1,0 +1,13 @@
+".\out\main.obj",
+".\out\delay.obj",
+".\out\a96T428_adc.obj",
+".\out\a96T428_clock.obj",
+".\out\a96T428_gpio.obj",
+".\out\a96T428_usart1_uart.obj",
+".\out\a96T428_timer1.obj",
+".\out\a96T428_timer3.obj",
+".\out\startup.obj" 
+TO ".\out\a96T428_ADC" 
+PRINT(".\out\a96T428_ADC.m51") RAMSIZE(256) 
+CODE( 0X0000-0X7FFF )
+XDATA( 0X0000-0X06FF )

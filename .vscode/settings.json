@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "a96T428_adc.h": "c",
+        "a96t428_gpio.h": "c",
+        "a96t428_usart1_uart.h": "c"
+    }
+}

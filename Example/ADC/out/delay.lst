@@ -1,0 +1,150 @@
+C51 COMPILER V9.60.7.0   DELAY                                                             01/09/2025 13:29:41 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE DELAY
+NO OBJECT MODULE REQUESTED
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE src\delay.c LARGE OPTIMIZE(8,SPEED) BROWSE NOAREGS INCDIR(..\..\Driver;.
+                    -\src) DEBUG OBJECTEXTEND PRINT(.\out\delay.lst) TABS(2) SRC(.\out\delay.SRC)
+
+line level    source
+
+   1          /**
+   2           *******************************************************************************
+   3           * @file        delay.c
+   4           * @author      ABOV R&D Division
+   5           * @brief       DELAY Source File
+   6           *
+   7           * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+   8           *
+   9           * This file is licensed under terms that are found in the LICENSE file
+  10           * located at Document directory.
+  11           * If this file is delivered or shared without applicable license terms,
+  12           * the terms of the BSD-3-Clause license shall be applied.
+  13           * Reference: https://opensource.org/licenses/BSD-3-Clause
+  14           ******************************************************************************/
+  15          
+  16          /* Includes ------------------------------------------------------------------*/
+  17          #include    "typedef.h"
+  18          #include    "Intrins.h"
+  19          #include    "delay.h"       //
+  20          /* Private Pre-processor Definition & Macro ----------------------------------*/
+  21          /* Private Typedef -----------------------------------------------------------*/
+  22          /* Private Variable ----------------------------------------------------------*/
+  23          /* Private Function Prototype ------------------------------------------------*/
+  24          /* Public Variable -----------------------------------------------------------*/
+  25          /* Public Function -----------------------------------------------------------*/
+  26          /**
+  27          * @brief    System NOP 1us Delay rountine. (MCLK = 16MHZ)
+  28          * @note     1 machine cycle comprises 2 system clock cycles. (@ABOV 96 Core Serise)
+  29          *           16 system clock delay
+  30          * @param    None
+  31          * @return   None
+  32          */
+  33          volatile void NOP_1us_Delay(void)
+  34          {
+  35   1          // ACALL, LCALL : 2 cycle => 4 system clock cycle
+  36   1          NOP; NOP; NOP; NOP;     // NOP : 1 cycle => 2 sys. clock => 8 sys. clk
+  37   1          // RET : 2 cycle => 4 system clock cycle
+  38   1          // 16 sys. clk @16MHZ = 62.5ns x 16 = 1us
+  39   1      }
+  40          /**
+  41          * @brief    System NOP 10us Delay rountine. (MCLK = 16MHZ)
+  42          * @note     1 machine cycle comprises 2 system clock cycles. (@ABOV 96 Core Serise)
+  43          *           160 system clock delay
+  44          *           1 machine cycle can be added depending on code optimization.
+  45          *
+  46          *           ex1)    MOV R7,#(Low byte of delay)
+  47          *                   MOV R6,#(high byte of delay)
+  48          *                   LCALL   NOP_10us_Delay
+  49          *
+  50          *           ex2)    MOV A,#(Low byte of delay) // Lower byte and higher byte are the same.
+  51          *                   MOV R7,A
+  52          *                   MOV R6,A
+  53          *                   LCALL   NOP_10us_Delay
+  54          *
+C51 COMPILER V9.60.7.0   DELAY                                                             01/09/2025 13:29:41 PAGE 2   
+
+  55          * @param    delay : unsigned int 1~65,355 (delay) * 10us (@System clock = 16Mhz)
+  56          * @return   None
+  57          */
+  58          volatile void NOP_10us_Delay(unsigned int delay)
+  59          {
+  60   1          // mov r7 <- low byte of delay      // 1cycle
+  61   1          // mov r6 <- high byte of delay     // 1cycle
+  62   1          // lcall NOP_10us_Delay             // 2cycle
+  63   1          
+  64   1          // dummy assignment to avoid warning
+  65   1          // 'unreferenced local variable'
+  66   1          // Reference Link : http://www.keil.com/support/docs/2622.htm
+  67   1          // delay -> [r6:r7]
+  68   1          
+  69   1          delay = delay;  // dummy
+  70   1                          
+  71   1          #pragma asm
+  72   1              lcall   NOP_1us_Delay
+  73   1              lcall   NOP_1us_Delay
+  74   1              lcall   NOP_1us_Delay
+  75   1              lcall   NOP_1us_Delay
+  76   1              lcall   NOP_1us_Delay
+  77   1              lcall   NOP_1us_Delay
+  78   1              lcall   NOP_1us_Delay
+  79   1              lcall   NOP_1us_Delay
+  80   1              clr     c                           // 1cycle
+  81   1              mov     a,r7                        // 1cycle
+  82   1              subb    a,#2                        // 1cycle
+  83   1              mov     r7,a                        // 1cycle
+  84   1              mov     a,r6                        // 1cycle
+  85   1              subb    a,#0                        // 1cycle
+  86   1              mov     r6,a                        // 1cycle
+  87   1              jc     _nop_10us_delay_loop_end     // 2cycle
+  88   1              
+  89   1          _nop_10us_delay_loop:
+  90   1              lcall   NOP_1us_Delay
+  91   1              lcall   NOP_1us_Delay
+  92   1              lcall   NOP_1us_Delay
+  93   1              lcall   NOP_1us_Delay
+  94   1              lcall   NOP_1us_Delay
+  95   1              lcall   NOP_1us_Delay
+  96   1              lcall   NOP_1us_Delay
+  97   1              lcall   NOP_1us_Delay
+  98   1              nop
+  99   1              nop
+ 100   1              nop
+ 101   1              nop
+ 102   1              nop
+ 103   1              nop
+ 104   1              nop
+ 105   1              
+ 106   1              clr     c                           // 1cycle
+ 107   1              mov     a,r7                        // 1cycle
+ 108   1              subb    a,#1                        // 1cycle
+ 109   1              mov     r7,a                        // 1cycle
+ 110   1              mov     a,r6                        // 1cycle
+ 111   1              subb    a,#0                        // 1cycle
+ 112   1              mov     r6,a                        // 1cycle
+ 113   1              jnc     _nop_10us_delay_loop        // 2cycle
+ 114   1      
+ 115   1          _nop_10us_delay_loop_end:
+ 116   1              nop                                 // 1cycle
+C51 COMPILER V9.60.7.0   DELAY                                                             01/09/2025 13:29:41 PAGE 3   
+
+ 117   1              
+ 118   1          #pragma endasm
+ 119   1                                                  // ret 2cycle
+ 120   1      }
+ 121          
+ 122          /* --------------------------------- End Of File ------------------------------ */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    144    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,658 @@
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\out\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE src\main.c LARGE OPTIMIZE(8,SPEED) BROWSE NOAREGS INCDIR(..\..\Driver;.\
+                    -src) DEBUG OBJECTEXTEND PRINT(.\out\main.lst) TABS(2) OBJECT(.\out\main.obj)
+
+line level    source
+
+   1          /**
+   2           *******************************************************************************
+   3           * @file        main.c
+   4           * @author      ABOV R&D Division
+   5           * @brief       Main Example Code
+   6           *
+   7           * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+   8           *
+   9           * This file is licensed under terms that are found in the LICENSE file
+  10           * located at Document directory.
+  11           * If this file is delivered or shared without applicable license terms,
+  12           * the terms of the BSD-3-Clause license shall be applied.
+  13           * Reference: https://opensource.org/licenses/BSD-3-Clause
+  14           ******************************************************************************/
+  15          
+  16          /* Includes ------------------------------------------------------------------*/
+  17          #include    "Intrins.h"
+  18          #include    "delay.h"     //
+  19          #include "a96T428_gpio.h"
+  20          #include "a96T428_clock.h"
+  21          #include "a96T428_adc.h"
+  22          #include "a96T428_timer1.h"
+  23          #include "a96T428_timer3.h"
+  24          #include "a96T428_usart1_uart.h"
+  25          #include "stdio.h"  
+  26          
+  27          /* Private Variable ----------------------------------------------------------*/
+  28          uint32_t sum_data = 0;
+  29          uint16_t avg_data = 0;
+  30          uint16_t temp_data[ADC_MAX_BUFFER_SIZE];
+  31          
+  32          /* Private Function Prototype ------------------------------------------------*/
+  33          
+  34          //------------------------------------------------------------------------------
+  35          //  Project include function code
+  36          //------------------------------------------------------------------------------
+  37          char putchar (char c)   /* character to output */
+  38          {
+  39   1        while(!(USTAT & (UDRE)));
+  40   1        UDATA = c;
+  41   1        return c;
+  42   1      }
+  43          
+  44          void Display_project(void)
+  45          {
+  46   1        //System_Clock_Initial(HSI16_DIV1);         
+  47   1          /* System Stabilize Delay */
+  48   1        //NOP_10us_Delay(1);         // 10usec
+  49   1        
+  50   1        /*Set Alernative Function for USART P16(RXD1) / P17(TXD1)*/
+  51   1        Port_SetInputpin(PORT1, PIN6, TRUE); //input pullup enable
+  52   1        Port_SetAlterFunctionpin(PORT1, PIN6, 0x3);
+  53   1        Port_SetAlterFunctionpin(PORT1, PIN7, 0x3);
+  54   1        
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 2   
+
+  55   1        USART1_UART_Initial(9600, USART1_DATA_8BIT, USART1_STOP_1BIT, USART1_PARITY_NO, USART1_TX_RX_MODE);
+  56   1        
+  57   1        printf("\n\ra96T428 ADC TEST!!");
+  58   1      }
+  59          
+  60          /* Public Function -----------------------------------------------------------*/
+  61          void T1_TimerCounter_mode_set()
+  62          {
+  63   1        /* Timer1 T1O port (Alternative function) */
+  64   1        Port_SetAlterFunctionpin(PORT1, PIN1, 0x1);
+  65   1        /* Enable timer1 INT */   
+  66   1        //Timer1_ConfigureInterrupt(TRUE);
+  67   1        
+  68   1          /* Timer1 initialize @ 16MHz */
+  69   1        Timer1_Initial(T1_COUNTER_MODE, TIMER1_DIV1); //1/16us
+  70   1        Timer1_SetMatchCounter(1600-1); //period=100us, 100us/(1/16us)=1600
+  71   1        /* Timer1 start */
+  72   1        Timer1_Start(); 
+  73   1        
+  74   1      }
+  75          
+  76          void T3_TimerCounter_mode_set(void)
+  77          {
+  78   1        Timer3_SetPPGPolarity(T3_START_LOW); //default High 
+  79   1        /* Timer3 T3O port (Alternative function) */
+  80   1        Port_SetAlterFunctionpin(PORT0, PIN5, 0x3);
+  81   1          /* Enable timer3 match INT */   
+  82   1        //Timer3_ConfigureInterrupt(TRUE);
+  83   1      
+  84   1          /* Timer1 initialize @ 16MHz */
+  85   1        Timer3_Initial(T3_COUNTER_MODE, TIMER3_DIV1); //1/16us
+  86   1        Timer3_SetMatchCounter(1600-1); //period=100us, 100us/(1/16us)=1600
+  87   1        /* Timer3start */
+  88   1        Timer3_Start();   
+  89   1        _nop_();
+  90   1        
+  91   1      }
+  92          
+  93          void EINT0_mode_set(void)
+  94          {
+  95   1        EIPOL0L = POL0_BOTH_ADGE; //EINT0  Polarity selection. both edge  
+  96   1        EINT0_5_EN();
+  97   1        _nop_();
+  98   1      }
+  99          
+ 100          void EINT0_mode_clear(void)
+ 101          {
+ 102   1        EIPOL0L = POL0_NO_INT;  //EINT0  Polarity selection. clear
+ 103   1        _nop_();
+ 104   1      }
+ 105          
+ 106          void EINT1_mode_set(void)
+ 107          {
+ 108   1        EIPOL0L = 0xFF; //EINT1  Polarity selection. both edge  
+ 109   1        EINT0_5_EN();
+ 110   1        _nop_();
+ 111   1      }
+ 112          
+ 113          void EINT1_mode_clear(void)
+ 114          {
+ 115   1        EIPOL0L = POL1_NO_INT;  //EINT1  Polarity selection. clear
+ 116   1        _nop_();
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 3   
+
+ 117   1      }
+ 118          
+ 119          void EINT2_mode_set(void)
+ 120          {
+ 121   1        EIPOL0L = POL2_BOTH_ADGE; //EINT2  Polarity selection. both edge  
+ 122   1        EINT0_5_EN();
+ 123   1        _nop_();
+ 124   1      }
+ 125          
+ 126          void EINT2_mode_clear(void)
+ 127          {
+ 128   1        EIPOL0L = POL2_NO_INT;  //EINT2  Polarity selection. clear
+ 129   1        _nop_();
+ 130   1      }
+ 131          
+ 132          void EINT3_mode_set(void)
+ 133          {
+ 134   1        EIPOL0L = POL3_BOTH_ADGE; //EINT3  Polarity selection. both edge  
+ 135   1        EINT0_5_EN();
+ 136   1        _nop_();
+ 137   1      }
+ 138          
+ 139          void EINT3_mode_clear(void)
+ 140          {
+ 141   1        EIPOL0L = POL3_NO_INT;  //EINT3  Polarity selection. clear
+ 142   1        _nop_();
+ 143   1      }
+ 144          
+ 145          void EINT8_mode_set(void)
+ 146          {
+ 147   1        EIPOL1  = POL8_BOTH_ADGE; //EINT8  Polarity selection. both edge  
+ 148   1        EINT8_INT_EN();
+ 149   1        _nop_();
+ 150   1      }
+ 151          
+ 152          void EINT8_mode_clear(void)
+ 153          {
+ 154   1        EIPOL1  = POL8_NO_INT;  //EINT8  Polarity selection. clear
+ 155   1        EINT8_INT_EN();
+ 156   1        _nop_();
+ 157   1      }
+ 158          
+ 159          void ADC_Buffer_Display()
+ 160          {
+ 161   1        uint8_t i;
+ 162   1        printf(": data[]= ");
+ 163   1        for(i = 0; i < ADC_MAX_BUFFER_SIZE; i++)
+ 164   1          printf(" %04Xh ", temp_data[i]);
+ 165   1      }
+ 166          
+ 167          /**********************************************************************
+ 168           * @brief   Main program
+ 169           * @param     None
+ 170           * @return      None
+ 171           **********************************************************************/
+ 172          void Main( void )
+ 173          {
+ 174   1        uint8_t i;
+ 175   1        uint8_t Triggermode=0;
+ 176   1        
+ 177   1          /* Disable INT. during peripheral setting */
+ 178   1        GLOBAL_INTERRUPT_DIS();     
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 4   
+
+ 179   1          
+ 180   1          /* Port initialize */
+ 181   1        Port_Initial();           
+ 182   1          /* Clock initialize */
+ 183   1        System_Clock_Initial(HSI16_DIV1);         
+ 184   1          /* System Stabilize Delay */
+ 185   1        
+ 186   1        Display_project();
+ 187   1        
+ 188   1        NOP_10us_Delay(1);         // 10usec
+ 189   1      
+ 190   1        if(1) // Normal Test (AN0)
+ 191   1        {
+ 192   2          /* Set Alternative function  AN0(P04) */
+ 193   2          Port_SetAlterFunctionpin(PORT0, PIN4, 0x2);
+ 194   2          Port_SetInputpin(PORT0, PIN4, NO_PULL);
+ 195   2            
+ 196   2          /* Selection ADC input channel */
+ 197   2          ADC_SelectChannel(ADC_CH0);
+ 198   2        }
+ 199   1        
+ 200   1        
+ 201   1        if(0) // External Interrupt Test (EINT Pin, AN4)
+ 202   1        {
+ 203   2          /* Set Alternative function  AN4(P23) */
+ 204   2          Port_SetAlterFunctionpin(PORT2, PIN3, 0x2);
+ 205   2          Port_SetInputpin(PORT2, PIN3, NO_PULL);
+ 206   2            
+ 207   2          /* Selection ADC input channel */
+ 208   2          ADC_SelectChannel(ADC_CH4);
+ 209   2          
+ 210   2          Port_SetInputpin(PORT0, PIN3, PULL_UP); // EINT0
+ 211   2          Port_SetInputpin(PORT0, PIN4, PULL_UP); // EINT1
+ 212   2          Port_SetInputpin(PORT0, PIN5, PULL_UP); // EINT2
+ 213   2          Port_SetInputpin(PORT0, PIN6, PULL_UP); // EINT3
+ 214   2          Port_SetInputpin(PORT3, PIN1, PULL_UP); // EINT8
+ 215   2          
+ 216   2        }
+ 217   1        
+ 218   1          /* Enable INT */
+ 219   1        GLOBAL_INTERRUPT_EN();
+ 220   1      
+ 221   1        NOP_10us_Delay(1);    // 10usec delay
+ 222   1        
+ 223   1        //Triggermode=0; //Polling 
+ 224   1        //Triggermode=1; //Interrupt 
+ 225   1        //Triggermode=2; // Timer1 Trigger
+ 226   1        //Triggermode=3; // Timer3 Trigger
+ 227   1        //Triggermode=4; // EXTINT0~3 Trigger 
+ 228   1        //Triggermode=5; // EXTINT8 Trigger 
+ 229   1        //Triggermode=6; //All 16 ch ADC 
+ 230   1        Triggermode=7; //ADC CLK change (Sampling Time)
+ 231   1        //Triggermode=8; //ADC Align (MSB, LSB)
+ 232   1        
+ 233   1          /* Infinite loop */
+ 234   1        while(1)
+ 235   1        {          
+ 236   2          /* Initialize ADC */
+ 237   2          if(Triggermode==0) 
+ 238   2          { 
+ 239   3            ADC_Initial(ADC_CLK_DIV1, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 240   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE); //conversion real=us,  ideal=1.3125us 
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 5   
+
+ 241   3            printf("\n\r ADC Mode : ADC_CLK_DIV1, ADC_SW_TRIG, Polling ");
+ 242   3            ADC_Buffer_Display();
+ 243   3      
+ 244   3            ADC_Initial(ADC_CLK_DIV2, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 245   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE); //conversion real=us,  ideal=2.625us 
+ 246   3            printf("\n\r ADC Mode : ADC_CLK_DIV2, ADC_SW_TRIG, Polling ");
+ 247   3            ADC_Buffer_Display();
+ 248   3      
+ 249   3            ADC_Initial(ADC_CLK_DIV4, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 250   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);  //conversion real=6.6us,  ideal=5.25us 
+ 251   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, Polling ");
+ 252   3            ADC_Buffer_Display();
+ 253   3            
+ 254   3            ADC_Initial(ADC_CLK_DIV8, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 255   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);  //conversion real=11.9us,  ideal=10.5us 
+ 256   3            printf("\n\r ADC Mode : ADC_CLK_DIV8, ADC_SW_TRIG, Polling ");      
+ 257   3            ADC_Buffer_Display();
+ 258   3            
+ 259   3            ADCCR3=30; //Sampling time=32cycle 
+ 260   3            ADC_Initial(ADC_CLK_DIV8, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 261   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);  //conversion real=26us, ideal=24.5us 
+ 262   3            printf("\n\r ADC Mode : ADC_CLK_DIV8, ADC_SW_TRIG, Polling ");      
+ 263   3            ADC_Buffer_Display();
+ 264   3      
+ 265   3      //      ADCCR3=31; //Sampling time=33cycle ?????
+ 266   3      //      ADC_Initial(ADC_CLK_DIV8, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 267   3      //      ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);  //conversion real=26.5us, ideal=25us 
+ 268   3      //      printf("\n\r ADC Mode : ADC_CLK_DIV8, ADC_SW_TRIG, Polling ");      
+ 269   3      //      ADC_Buffer_Display();
+ 270   3          }
+ 271   2          else if(Triggermode==1) 
+ 272   2          { 
+ 273   3            ADC_Initial(ADC_CLK_DIV1, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 274   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 275   3            printf("\n\r ADC Mode : ADC_CLK_DIV1, ADC_SW_TRIG, Interrupt ");
+ 276   3            ADC_Buffer_Display();
+ 277   3            
+ 278   3            ADC_Initial(ADC_CLK_DIV2, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 279   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 280   3            printf("\n\r ADC Mode : ADC_CLK_DIV2, ADC_SW_TRIG, Interrupt ");
+ 281   3            ADC_Buffer_Display();
+ 282   3            
+ 283   3            ADC_Initial(ADC_CLK_DIV4, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 284   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 285   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, Interrupt ");
+ 286   3            ADC_Buffer_Display();
+ 287   3            
+ 288   3            ADC_Initial(ADC_CLK_DIV8, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 289   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 290   3            printf("\n\r ADC Mode : ADC_CLK_DIV8, ADC_SW_TRIG, Interrupt ");
+ 291   3            ADC_Buffer_Display();
+ 292   3      
+ 293   3      //      ADC_Initial(ADC_CLK_DIV4, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_MSB);
+ 294   3      //      ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 295   3      //      printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, Interrupt ");
+ 296   3      //      ADC_Buffer_Display();
+ 297   3      
+ 298   3          }
+ 299   2          else if(Triggermode==2) 
+ 300   2          { 
+ 301   3            ADC_Initial(ADC_CLK_DIV4, ADC_T1_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 302   3            T1_TimerCounter_mode_set();
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 6   
+
+ 303   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 304   3            Timer1_Stop();
+ 305   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_T1_TRIG, Interrupt ");
+ 306   3            ADC_Buffer_Display();
+ 307   3          }
+ 308   2          else if(Triggermode==3) 
+ 309   2          { 
+ 310   3            ADC_Initial(ADC_CLK_DIV4, ADC_T3_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 311   3            T3_TimerCounter_mode_set();
+ 312   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 313   3            Timer3_Stop();
+ 314   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_T3_TRIG, Interrupt ");
+ 315   3            ADC_Buffer_Display();
+ 316   3          }
+ 317   2          else if(Triggermode==4) 
+ 318   2          { 
+ 319   3            ADC_Initial(ADC_CLK_DIV4, ADC_EXT0_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 320   3            
+ 321   3            //EINT0_mode_set(); //T1O(P11) and EINT0(P03) connection
+ 322   3            EINT1_mode_set(); //T1O(P11) and EINT1(P04) connection
+ 323   3            //EINT2_mode_set(); //T1O(P11) and EINT2(P05) connection
+ 324   3            //EINT3_mode_set(); //T1O(P11) and EINT3(P06) connection
+ 325   3            
+ 326   3            T1_TimerCounter_mode_set();
+ 327   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 328   3            
+ 329   3            //EINT0_mode_clear();
+ 330   3            EINT1_mode_clear();
+ 331   3            //EINT2_mode_clear();
+ 332   3            //EINT3_mode_clear();
+ 333   3            
+ 334   3            Timer1_Stop();
+ 335   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_EXT0_TRIG, Interrupt ");
+ 336   3            ADC_Buffer_Display();
+ 337   3          }
+ 338   2          else if(Triggermode==5) 
+ 339   2          { 
+ 340   3            ADC_Initial(ADC_CLK_DIV4, ADC_EXT8_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 341   3            EINT8_mode_set(); //T3O(P05) and EINT8(P31) connection
+ 342   3            T3_TimerCounter_mode_set(); //T3O(P05) and EINT8(P31) connection
+ 343   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 344   3            EINT8_mode_clear();
+ 345   3            Timer3_Stop();
+ 346   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_EXT8_TRIG, Interrupt ");
+ 347   3            ADC_Buffer_Display();
+ 348   3          }
+ 349   2          else if(Triggermode==6) 
+ 350   2          {     
+ 351   3            //All CH ADC Read Test 
+ 352   3            ADC_Initial(ADC_CLK_DIV4, ADC_SW_TRIG, ADC_EXTERNL_REF, ADC_LSB);
+ 353   3            
+ 354   3            /* Set Alternative function  AN0(P04) */
+ 355   3            Port_SetAlterFunctionpin(PORT0, PIN4, 0x2);
+ 356   3            Port_SetInputpin(PORT0, PIN4, NO_PULL);
+ 357   3            ADC_SelectChannel(ADC_CH0);   
+ 358   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 359   3            Port_SetAlterFunctionpin(PORT0, PIN4, 0x0);
+ 360   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH0 ");
+ 361   3            ADC_Buffer_Display();
+ 362   3            
+ 363   3            /* Set Alternative function  AN1(P05) */
+ 364   3            Port_SetAlterFunctionpin(PORT0, PIN5, 0x2);
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 7   
+
+ 365   3            Port_SetInputpin(PORT0, PIN5, NO_PULL);
+ 366   3            ADC_SelectChannel(ADC_CH1);   
+ 367   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 368   3            Port_SetAlterFunctionpin(PORT0, PIN5, 0x0);
+ 369   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH1 ");
+ 370   3            ADC_Buffer_Display();
+ 371   3      
+ 372   3            /* Set Alternative function  AN2(P06) */
+ 373   3            Port_SetAlterFunctionpin(PORT0, PIN6, 0x2);
+ 374   3            Port_SetInputpin(PORT0, PIN6, NO_PULL);
+ 375   3            ADC_SelectChannel(ADC_CH2);   
+ 376   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 377   3            Port_SetAlterFunctionpin(PORT0, PIN6, 0x0);
+ 378   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH2 ");
+ 379   3            ADC_Buffer_Display();
+ 380   3      
+ 381   3            /* Set Alternative function  AN3(P07) */
+ 382   3            Port_SetAlterFunctionpin(PORT0, PIN7, 0x2);
+ 383   3            Port_SetInputpin(PORT0, PIN7, NO_PULL);
+ 384   3            ADC_SelectChannel(ADC_CH3);   
+ 385   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 386   3            Port_SetAlterFunctionpin(PORT0, PIN7, 0x0);
+ 387   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH3 ");
+ 388   3            ADC_Buffer_Display();
+ 389   3      
+ 390   3            /* Set Alternative function  AN4(P10) */
+ 391   3            Port_SetAlterFunctionpin(PORT1, PIN0, 0x2);
+ 392   3            Port_SetInputpin(PORT1, PIN0, NO_PULL);
+ 393   3            ADC_SelectChannel(ADC_CH4);   
+ 394   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 395   3            Port_SetAlterFunctionpin(PORT1, PIN0, 0x0);
+ 396   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH4 ");
+ 397   3            ADC_Buffer_Display();
+ 398   3      
+ 399   3            /* Set Alternative function  AN5(P11) */
+ 400   3            Port_SetAlterFunctionpin(PORT1, PIN1, 0x2);
+ 401   3            Port_SetInputpin(PORT1, PIN1, NO_PULL);
+ 402   3            ADC_SelectChannel(ADC_CH5);   
+ 403   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 404   3            Port_SetAlterFunctionpin(PORT1, PIN1, 0x0);
+ 405   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH5 ");
+ 406   3            ADC_Buffer_Display();
+ 407   3      
+ 408   3            /* Set Alternative function  AN6(P12) */
+ 409   3            Port_SetAlterFunctionpin(PORT1, PIN2, 0x2);
+ 410   3            Port_SetInputpin(PORT1, PIN2, NO_PULL);
+ 411   3            ADC_SelectChannel(ADC_CH6);   
+ 412   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 413   3            Port_SetAlterFunctionpin(PORT1, PIN2, 0x0);
+ 414   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH6 ");
+ 415   3            ADC_Buffer_Display();
+ 416   3      
+ 417   3            /* Set Alternative function  AN7(P03) */
+ 418   3            Port_SetAlterFunctionpin(PORT0, PIN3, 0x2);
+ 419   3            Port_SetInputpin(PORT0, PIN3, NO_PULL);
+ 420   3            ADC_SelectChannel(ADC_CH7);   
+ 421   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 422   3            Port_SetAlterFunctionpin(PORT0, PIN3, 0x0);
+ 423   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH7 ");
+ 424   3            ADC_Buffer_Display();
+ 425   3      
+ 426   3      #if A96T418_MODE==0
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 8   
+
+ 427   3            /* Set Alternative function  AN8(P40) */
+ 428   3            Port_SetAlterFunctionpin(PORT4, PIN0, 0x2);
+ 429   3            Port_SetInputpin(PORT4, PIN0, NO_PULL);
+ 430   3            ADC_SelectChannel(ADC_CH8);   
+ 431   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 432   3            Port_SetAlterFunctionpin(PORT4, PIN0, 0x0);
+ 433   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH8 ");
+ 434   3            ADC_Buffer_Display();
+ 435   3      
+ 436   3            /* Set Alternative function  AN9(P41) */
+ 437   3            Port_SetAlterFunctionpin(PORT4, PIN1, 0x2);
+ 438   3            Port_SetInputpin(PORT4, PIN1, NO_PULL);
+ 439   3            ADC_SelectChannel(ADC_CH9);   
+ 440   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 441   3            Port_SetAlterFunctionpin(PORT4, PIN1, 0x0);
+ 442   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH9 ");
+ 443   3            ADC_Buffer_Display();
+ 444   3      
+ 445   3            /* Set Alternative function  AN10(P42) */
+ 446   3            Port_SetAlterFunctionpin(PORT4, PIN2, 0x2);
+ 447   3            Port_SetInputpin(PORT4, PIN2, NO_PULL);
+ 448   3            ADC_SelectChannel(ADC_CH10);    
+ 449   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 450   3            Port_SetAlterFunctionpin(PORT4, PIN2, 0x0);
+ 451   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH10 ");
+ 452   3            ADC_Buffer_Display();
+ 453   3      
+ 454   3            /* Set Alternative function  AN11(P43) */
+ 455   3            Port_SetAlterFunctionpin(PORT4, PIN3, 0x2);
+ 456   3            Port_SetInputpin(PORT4, PIN3, NO_PULL);
+ 457   3            ADC_SelectChannel(ADC_CH11);    
+ 458   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 459   3            Port_SetAlterFunctionpin(PORT4, PIN3, 0x0);
+ 460   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH11 ");
+ 461   3            ADC_Buffer_Display();
+ 462   3      
+ 463   3            /* Set Alternative function  AN12(P54) */
+ 464   3            Port_SetAlterFunctionpin(PORT5, PIN4, 0x2);
+ 465   3            Port_SetInputpin(PORT5, PIN4, NO_PULL);
+ 466   3            ADC_SelectChannel(ADC_CH12);    
+ 467   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 468   3            Port_SetAlterFunctionpin(PORT5, PIN4, 0x0);
+ 469   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH12 ");
+ 470   3            ADC_Buffer_Display();
+ 471   3      
+ 472   3            /* Set Alternative function  AN13(P55) */
+ 473   3            Port_SetAlterFunctionpin(PORT5, PIN5, 0x2);
+ 474   3            Port_SetInputpin(PORT5, PIN5, NO_PULL);
+ 475   3            ADC_SelectChannel(ADC_CH13);    
+ 476   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 477   3            Port_SetAlterFunctionpin(PORT5, PIN5, 0x0);
+ 478   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH13 ");
+ 479   3            ADC_Buffer_Display();
+ 480   3      
+ 481   3            /* Set Alternative function  AN14(P56) */
+ 482   3            Port_SetAlterFunctionpin(PORT5, PIN6, 0x2);
+ 483   3            Port_SetInputpin(PORT5, PIN6, NO_PULL);
+ 484   3            ADC_SelectChannel(ADC_CH14);    
+ 485   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 486   3            Port_SetAlterFunctionpin(PORT5, PIN6, 0x0);
+ 487   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH14 ");
+ 488   3            ADC_Buffer_Display();
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 9   
+
+ 489   3      
+ 490   3            /* Set Alternative function  AN15(P57) */
+ 491   3            Port_SetAlterFunctionpin(PORT5, PIN7, 0x2);
+ 492   3            Port_SetInputpin(PORT5, PIN7, NO_PULL);
+ 493   3            ADC_SelectChannel(ADC_CH15);    
+ 494   3            ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 495   3            Port_SetAlterFunctionpin(PORT5, PIN7, 0x0);
+ 496   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, CH15 ");
+ 497   3            ADC_Buffer_Display();
+ 498   3      #endif
+ 499   3            printf("\n\r");
+ 500   3      
+ 501   3          }
+ 502   2          
+ 503   2          else if(Triggermode==7) 
+ 504   2          { 
+ 505   3            for(i=0; i<34; i++)
+ 506   3            {
+ 507   4              ADCCR3 = i;
+ 508   4              ADC_Initial(ADC_CLK_DIV2, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 509   4              ADC_GetDataWithPolling(temp_data, ADC_MAX_BUFFER_SIZE);
+ 510   4      //        printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, Interrupt ");
+ 511   4      //        ADC_Buffer_Display();
+ 512   4            }
+ 513   3          }
+ 514   2          
+ 515   2          
+ 516   2          else if(Triggermode==8) 
+ 517   2          { 
+ 518   3            ADC_Initial(ADC_CLK_DIV4, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_LSB);
+ 519   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 520   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, Interrupt ");
+ 521   3            ADC_Buffer_Display();
+ 522   3      
+ 523   3            ADC_Initial(ADC_CLK_DIV4, ADC_SW_TRIG, ADC_INTERNAL_REF, ADC_MSB);
+ 524   3            ADC_GetDataWithInterrupt(temp_data, ADC_MAX_BUFFER_SIZE);
+ 525   3            printf("\n\r ADC Mode : ADC_CLK_DIV4, ADC_SW_TRIG, Interrupt ");
+ 526   3            ADC_Buffer_Display();
+ 527   3          }
+ 528   2      
+ 529   2          if(0) 
+ 530   2          {
+ 531   3            sum_data = 0; 
+ 532   3            for(i = 0; i < ADC_MAX_BUFFER_SIZE; i++)
+ 533   3            {
+ 534   4              sum_data += temp_data[i];
+ 535   4            }
+ 536   3            
+ 537   3            printf("\n\r sum_data=%06lXh ", sum_data);
+ 538   3            avg_data = sum_data/16;
+ 539   3            printf("\n\r avg_data=%04Xh ", avg_data);
+ 540   3      
+ 541   3            for(i = 0; i < ADC_MAX_BUFFER_SIZE; i++)
+ 542   3              printf("\n\r data[%2d]=%04Xh ", (uint16_t)i,temp_data[i]);
+ 543   3            printf("\n\r");
+ 544   3            
+ 545   3            NOP; //for debug
+ 546   3          }
+ 547   2          
+ 548   2          NOP_10us_Delay(50000);    // 0.5sec delay
+ 549   2          NOP_10us_Delay(50000);    // 0.5sec delay
+ 550   2        }
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 10  
+
+ 551   1      
+ 552   1      
+ 553   1      }
+ 554          
+ 555          /**********************************************************************
+ 556           * @brief   Timer1 interrupt subroutine
+ 557           * @param[in] None
+ 558           * @return    None
+ 559           **********************************************************************/
+ 560          void TIMER1_Int(void) interrupt T1_MATCH_VECT
+ 561          {
+ 562   1          Port_SetOutputTogglepin(PORT2, PIN0);     
+ 563   1      }
+ 564          
+ 565          void TIMER3_Int(void) interrupt T3_MATCH_VECT
+ 566          {
+ 567   1          Port_SetOutputTogglepin(PORT2, PIN0);     
+ 568   1      }
+ 569          
+ 570          /**
+ 571           * @brief   EXT interrupt subroutine
+ 572           * @param     None
+ 573           * @return      None
+ 574          */
+ 575          void INT_EXT() interrupt EINT0_5_VECT
+ 576          {
+ 577   1          Port_SetOutputTogglepin(PORT2, PIN0);     
+ 578   1        
+ 579   1        // External interrupt
+ 580   1        if((EIFLAG0 & 0x01) == 0x01)
+ 581   1        {
+ 582   2          EIFLAG0 &=~(0x01);  // FLAG0 Clear.
+ 583   2        }
+ 584   1        else if((EIFLAG0 & 0x02) == 0x02)
+ 585   1        {
+ 586   2          EIFLAG0 &=~(0x02);  // FLAG1 Clear.
+ 587   2        }
+ 588   1        else if((EIFLAG0 & 0x04) == 0x04)
+ 589   1        {
+ 590   2          EIFLAG0 &=~(0x04);  // FLAG2 Clear.
+ 591   2        }
+ 592   1        else if((EIFLAG0 & 0x08) == 0x08)
+ 593   1        {
+ 594   2          EIFLAG0 &=~(0x08);  // FLAG3 Clear.
+ 595   2        }
+ 596   1        else if((EIFLAG0 & 0x10) == 0x10)
+ 597   1        {
+ 598   2          EIFLAG0 &=~(0x10);  // FLAG4 Clear.
+ 599   2        }
+ 600   1        else if((EIFLAG0 & 0x20) == 0x20)
+ 601   1        {
+ 602   2          EIFLAG0 &=~(0x20);  // FLAG5 Clear.
+ 603   2        }
+ 604   1      }
+ 605          
+ 606          void INT_EXT8() interrupt EINT8_VECT
+ 607          {
+ 608   1          Port_SetOutputTogglepin(PORT2, PIN0);     
+ 609   1      }
+ 610          
+ 611          /* --------------------------------- End Of File ------------------------------ */
+ 612          
+C51 COMPILER V9.60.7.0   MAIN                                                              01/09/2025 13:29:41 PAGE 11  
+
+*** WARNING C294 IN LINE 204 OF src\main.c: unreachable code
+*** WARNING C294 IN LINE 531 OF src\main.c: unreachable code
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2286    ----
+   CONSTANT SIZE    =   1464    ----
+   XDATA SIZE       =     38       3
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

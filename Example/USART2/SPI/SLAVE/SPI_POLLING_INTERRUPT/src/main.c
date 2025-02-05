@@ -1,0 +1,194 @@
+/**
+ *******************************************************************************
+ * @file        Main.c
+ * @author      ABOV R&D Division
+ * @brief       Main Example Code
+ *
+ * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+ *
+ * This file is licensed under terms that are found in the LICENSE file
+ * located at Document directory.
+ * If this file is delivered or shared without applicable license terms,
+ * the terms of the BSD-3-Clause license shall be applied.
+ * Reference: https://opensource.org/licenses/BSD-3-Clause
+ ******************************************************************************/
+
+/* Includes ------------------------------------------------------------------*/
+#include    "Intrins.h"
+#include    "delay.h"     //
+#include "a96T428_gpio.h"
+#include "a96T428_clock.h"
+#include "a96T428_usart2_spi.h"
+#include "a96T428_usi_usart.h"
+#include "stdio.h"     
+
+uint8_t xdata write_data[USART_MAX_BUFFER_SIZE] _at_ 0x0300;
+uint8_t xdata read_data[USART_MAX_BUFFER_SIZE] _at_ 0x0320;
+
+uint8_t txnum = 0, rxnum = 0, tempr;
+
+/* Private Function Prototype ------------------------------------------------*/
+
+//------------------------------------------------------------------------------
+//	Project include function code
+//------------------------------------------------------------------------------
+char putchar (char c)   /* character to output */
+{
+	while(!(USI0ST1 & (UDRE)));
+		USI0DR = c;
+	return c;
+}
+
+char getchar()
+{
+	char c;
+	while((USI0ST1 & RXC)!= RXC);		// Wait Data in
+	c = USI0DR;
+	return c;
+}
+
+void Display_project(void)
+{
+	//System_Clock_Initial(HSI16_DIV1);         
+    /* System Stabilize Delay */
+	//NOP_10us_Delay(1);         // 10usec
+	
+	/*Set Alernative Function for USART P10(RXD0) / P11(TXD0)*/
+	Port_SetInputpin(PORT1, PIN0, TRUE); //input pullup enable
+	Port_SetAlterFunctionpin(PORT1, PIN0, 0x3);
+	Port_SetAlterFunctionpin(PORT1, PIN1, 0x3);
+	
+	USI_UART_Initial(USART_CH0, 9600, USART_DATA_8BIT, USART_STOP_1BIT, USART_PARITY_NO, USART_TX_RX_MODE);
+	
+#if A96T418_MODE==0
+	printf("\n\ra96T428 USART2 SPI SLAVE TEST!!");
+#endif	
+#if A96T418_MODE==1
+	printf("\n\rA96T418 USART2 SPI SLAVE TEST!!");
+#endif		
+}
+
+void Main( void )
+{
+	volatile uint8_t i;
+	uint8_t spi_pol, spi_phase, spi_msb_lsb, spi_int_polling;
+	char c;
+	
+    /* Disable INT. during peripheral setting */
+	GLOBAL_INTERRUPT_DIS();  
+    /* Port initialize */
+	Port_Initial();		        
+    /* Clock initialize */
+	System_Clock_Initial(HSI16_DIV1);           
+	Display_project();
+	/* System Stabilize Delay */
+	NOP_10us_Delay(1);         // 10usec
+
+	printf("\n\r Press any key ! ");
+	printf("\n\r '0' : SPI_CPOL_LOW, SPI_CPHA_LOW ");
+	printf("\n\r '1' : SPI_CPOL_LOW, SPI_CPHA_HIGH ");
+	printf("\n\r '2' : SPI_CPOL_HIGH, SPI_CPHA_LOW ");
+	printf("\n\r '3' : SPI_CPOL_HIGH, SPI_CPHA_HIGH ");
+	printf("\n\r other : SPI_CPOL_HIGH, SPI_CPHA_HIGH ");
+	c=getchar();
+	putchar(c);
+	switch(c)
+	{
+	case '0':
+		spi_pol=SPI2_CPOL_LOW;
+		spi_phase=SPI2_CPHA_1EDGE;
+		break;
+	case '1':
+		spi_pol=SPI2_CPOL_LOW;
+		spi_phase=SPI2_CPHA_2EDGE;
+		break;
+	case '2':
+		spi_pol=SPI2_CPOL_HIGH;
+		spi_phase=SPI2_CPHA_1EDGE;
+		break;
+	case '3':
+		spi_pol=SPI2_CPOL_HIGH;
+		spi_phase=SPI2_CPHA_2EDGE;
+		break;
+	default:
+		spi_pol=SPI2_CPOL_LOW;
+		spi_phase=SPI2_CPHA_1EDGE;
+		break;
+	}
+	
+	printf("\n\r Press any key ! ");
+	printf("\n\r '0' : SPI_LSB ");
+	printf("\n\r '1' : SPI_MSB ");
+	printf("\n\r other : SPI_LSB ");
+	c=getchar();
+	putchar(c);
+	switch(c)
+	{
+	case '0':
+		spi_msb_lsb=SPI2_LSB;
+		break;
+	case '1':
+		spi_msb_lsb=SPI2_MSB;
+		break;
+	default:
+		spi_msb_lsb=SPI2_LSB;
+		break;
+	}
+
+	printf("\n\r Press any key ! ");
+	printf("\n\r '0' : flag Polling mode ");
+	printf("\n\r '1' : Interrupt mode  ");
+	printf("\n\r other : flag Polling mode ");
+	c=getchar();
+	putchar(c);
+	switch(c)
+	{
+	case '0':
+		spi_int_polling=0;
+		break;
+	case '1':
+		spi_int_polling=1;
+		break;
+	default:
+		spi_int_polling=0;
+		break;
+	}
+	
+	/* Set Alternative function  MISO2(P50) / MOSI2(P51) */
+	Port_SetAlterFunctionpin(PORT5, PIN0, 0x3);
+	Port_SetAlterFunctionpin(PORT5, PIN1, 0x3);
+	/* Set Alternative function  SCK2(P55) / SS2(P54) */
+	Port_SetAlterFunctionpin(PORT5, PIN5, 0x3);
+	Port_SetAlterFunctionpin(PORT5, PIN4, 0x3);
+	
+	USART2_SPI_Initial(SPI2_SLAVE_MODE, 0, spi_msb_lsb, spi_pol, spi_phase, SPI2_TX_RX_MODE, SPI2_SS_HW_ENABLE);
+	for(i = 0; i < USART_MAX_BUFFER_SIZE; i++)
+		write_data[i] = 0x80+i+1;
+
+    if(spi_int_polling)
+		GLOBAL_INTERRUPT_EN();    
+	NOP_10us_Delay(100);    // 1msec delay
+	printf("\n\n\r Waiting for RX data");
+	
+	while (1)
+	{
+		if(spi_int_polling)
+			USART2_SPI_SlaveWithInterrupt(write_data, read_data, USART_MAX_BUFFER_SIZE);
+		else 
+			USART2_SPI_SlaveWithPolling(write_data, read_data, USART_MAX_BUFFER_SIZE);
+			
+		printf("\n\r RX : ");
+		for(i=0; i<USART_MAX_BUFFER_SIZE; i++) 
+			printf("%02X ", (uint16_t)read_data[i]);			
+		printf("\n\r TX : ");
+		for(i=0; i<USART_MAX_BUFFER_SIZE; i++) 
+			printf("%02X ", (uint16_t)write_data[i]);			
+		printf("\n\r ");
+
+		for(i = 0; i < USART_MAX_BUFFER_SIZE; i++)
+			write_data[i] = read_data[i];  //writeBuff update with readBuff
+		
+	}
+}
+
+/* --------------------------------- End Of File ------------------------------ */

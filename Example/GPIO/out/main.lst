@@ -1,0 +1,459 @@
+C51 COMPILER V9.60.7.0   MAIN                                                              02/05/2025 09:26:17 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\out\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE src\main.c LARGE OPTIMIZE(9,SPEED) BROWSE INCDIR(..\..\Driver;.\src) DEB
+                    -UG OBJECTEXTEND PRINT(.\out\main.lst) TABS(2) OBJECT(.\out\main.obj)
+
+line level    source
+
+   1          /**
+   2           *******************************************************************************
+   3           * @file        main.c
+   4           * @author      ABOV R&D Division
+   5           * @brief       Main Example Code
+   6           *
+   7           * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+   8           *
+   9           * This file is licensed under terms that are found in the LICENSE file
+  10           * located at Document directory.
+  11           * If this file is delivered or shared without applicable license terms,
+  12           * the terms of the BSD-3-Clause license shall be applied.
+  13           * Reference: https://opensource.org/licenses/BSD-3-Clause
+  14           ******************************************************************************/
+  15          
+  16          /* Includes ------------------------------------------------------------------*/
+  17          #include    "Intrins.h"
+  18          #include    "delay.h"     //
+  19          #include "a96T428_gpio.h"
+  20          #include "a96T428_clock.h"
+  21          #include "a96T428_timer2.h"
+  22          #include "a96T428_usart1_uart.h"
+  23          #include "stdio.h"  
+  24          
+  25          /* Private Pre-processor Definition & Macro ----------------------------------*/
+  26          /* Private Typedef -----------------------------------------------------------*/
+  27          /* Private Variable ----------------------------------------------------------*/
+  28          
+  29          /* Public Variable -----------------------------------------------------------*/
+  30          /* Public Function -----------------------------------------------------------*/
+  31          /* Private Function Prototype ------------------------------------------------*/
+  32          
+  33          //------------------------------------------------------------------------------
+  34          //  Project include function code
+  35          //------------------------------------------------------------------------------
+  36          //char putchar (char c)   /* character to output */
+  37          //{
+  38          //  while(!(USTAT & (UDRE)));
+  39          //  UDATA = c;
+  40          //  return c;
+  41          //}
+  42          
+  43          //void Display_project(void)
+  44          //{
+  45          //  //System_Clock_Initial(HSI16_DIV1);         
+  46          //    /* System Stabilize Delay */
+  47          //  //NOP_10us_Delay(1);         // 10usec
+  48          //  
+  49          //  /*Set Alernative Function for USART P16(RXD1) / P17(TXD1)*/
+  50          //  Port_SetInputpin(PORT1, PIN6, TRUE); //input pullup enable
+  51          //  Port_SetAlterFunctionpin(PORT1, PIN6, 0x3);
+  52          //  Port_SetAlterFunctionpin(PORT1, PIN7, 0x3);
+  53          //  
+  54          //  USART1_UART_Initial(9600, USART1_DATA_8BIT, USART1_STOP_1BIT, USART1_PARITY_NO, USART1_TX_RX_MODE);
+C51 COMPILER V9.60.7.0   MAIN                                                              02/05/2025 09:26:17 PAGE 2   
+
+  55          //  
+  56          //  printf("\n\ra96T428 LED_BLINKY TEST!!");
+  57          //}
+  58          
+  59          void GPIO_inputFloating_inputPullup_test(void)
+  60          {
+  61   1        uint8_t c;
+  62   1        bit fOCDMode=(RSTFR&0x10)?1:0;
+  63   1        
+  64   1        //output Low 
+  65   1        for(c=0;c<8;c++) 
+  66   1        {
+  67   2          P0&=~(1<<c);
+  68   2          P0IO|=(1<<c);
+  69   2          P1&=~(1<<c);
+  70   2          P1IO|=(1<<c);
+  71   2          P2&=~(1<<c);
+  72   2          P2IO|=(1<<c);
+  73   2          P3&=~(1<<c);
+  74   2          P3IO|=(1<<c);
+  75   2      // #if A96T418_MODE==0
+  76   2      //    P4&=~(1<<c);
+  77   2      //    P4IO|=(1<<c);
+  78   2      //    P5&=~(1<<c);
+  79   2      //    P5IO|=(1<<c);
+  80   2      // #endif   
+  81   2        } 
+  82   1        
+  83   1        //input floating 
+  84   1        for(c=0;c<8;c++)
+  85   1        {
+  86   2          P0PU&=~(1<<c);
+  87   2          P0IO&=~(1<<c);
+  88   2          P1PU&=~(1<<c);
+  89   2          P1IO&=~(1<<c);
+  90   2          P2PU&=~(1<<c);
+  91   2          P2IO&=~(1<<c);
+  92   2          P3PU&=~(1<<c);
+  93   2          P3IO&=~(1<<c);
+  94   2      // #if A96T418_MODE==0
+  95   2      //    P4PU&=~(1<<c);
+  96   2      //    P4IO&=~(1<<c);
+  97   2      //    P5PU&=~(1<<c);
+  98   2      //    P5IO&=~(1<<c);
+  99   2      // #endif   
+ 100   2        }   
+ 101   1        if(fOCDMode)
+ 102   1          while((P0&0xF9)!=0x00) ; 
+ 103   1        else 
+ 104   1          while(P0!=0x00) ; 
+ 105   1        while(P1!=0x00) ; 
+ 106   1        while(P2!=0x00) ; 
+ 107   1        while(P3!=0x00) ; 
+ 108   1      #if A96T418_MODE==0
+ 109   1        while(P4!=0x00) ; 
+*** ERROR C202 IN LINE 109 OF src\main.c: 'P4': undefined identifier
+ 110   1        while(P5!=0x00) ; 
+*** ERROR C202 IN LINE 110 OF src\main.c: 'P5': undefined identifier
+ 111   1      #endif  
+ 112   1        _nop_();
+ 113   1        
+ 114   1        //input pullup 
+C51 COMPILER V9.60.7.0   MAIN                                                              02/05/2025 09:26:17 PAGE 3   
+
+ 115   1        for(c=0;c<8;c++)
+ 116   1        {
+ 117   2          P0PU|=(1<<c);
+ 118   2          P0IO&=~(1<<c);
+ 119   2          P1PU|=(1<<c);
+ 120   2          P1IO&=~(1<<c);
+ 121   2          P2PU|=(1<<c);
+ 122   2          P2IO&=~(1<<c);
+ 123   2          P3PU|=(1<<c);
+ 124   2          P3IO&=~(1<<c);
+ 125   2      // #if A96T418_MODE==0    
+ 126   2      //    P4PU|=(1<<c);
+ 127   2      //    P4IO&=~(1<<c);
+ 128   2      //    P5PU|=(1<<c);
+ 129   2      //    P5IO&=~(1<<c);
+ 130   2      // #endif   
+ 131   2        }   
+ 132   1        if(fOCDMode)
+ 133   1          while((P0&0xF9)!=0xF9) ; 
+ 134   1        else 
+ 135   1          while(P0!=0xFF) ; 
+ 136   1        while(P1!=0xFF) ; 
+ 137   1        while(P2!=0xFF) ; 
+ 138   1        while(P3!=0x03) ; 
+ 139   1      // #if A96T418_MODE==0    
+ 140   1      //  while(P4!=0x03) ; 
+ 141   1      //  while(P5!=0x03) ; 
+ 142   1      // #endif   
+ 143   1      }
+ 144          
+ 145          void GPIO_digital_input_blocking_test(void)
+ 146          {
+ 147   1        uint8_t c;
+ 148   1        bit fOCDMode=(RSTFR&0x10)?1:0;
+ 149   1      
+ 150   1      #if A96T418_MODE==1   
+                //input pullup 
+                for(c=0;c<8;c++)
+                {
+                  P0PU|=(1<<c);
+                  P0IO&=~(1<<c);
+                  P1PU|=(1<<c);
+                  P1IO&=~(1<<c);
+                }   
+                if(fOCDMode)
+                  while((P0&0xF9)!=0xF9) ; 
+                else 
+                  while(P0!=0xFF) ; 
+                while(P1!=0xFF) ;   
+              #endif    
+ 165   1        
+ 166   1      #if A96T418_MODE==0   
+ 167   1        //output Low 
+ 168   1        for(c=0;c<8;c++) 
+ 169   1        {
+ 170   2          P0&=~(1<<c);
+ 171   2          P0IO|=(1<<c);
+ 172   2          P1&=~(1<<c);
+ 173   2          P1IO|=(1<<c);
+ 174   2          P2&=~(1<<c);
+ 175   2          P2IO|=(1<<c);
+ 176   2          P3&=~(1<<c);
+C51 COMPILER V9.60.7.0   MAIN                                                              02/05/2025 09:26:17 PAGE 4   
+
+ 177   2          P3IO|=(1<<c);
+ 178   2          // P4&=~(1<<c);
+ 179   2          // P4IO|=(1<<c);
+ 180   2          // P5&=~(1<<c);
+ 181   2          // P5IO|=(1<<c);
+ 182   2        } 
+ 183   1        //input floating 
+ 184   1        for(c=0;c<8;c++)
+ 185   1        {
+ 186   2          P0PU&=~(1<<c);
+ 187   2          P0IO&=~(1<<c);
+ 188   2          P1PU&=~(1<<c);
+ 189   2          P1IO&=~(1<<c);
+ 190   2          P2PU&=~(1<<c);
+ 191   2          P2IO&=~(1<<c);
+ 192   2          P3PU&=~(1<<c);
+ 193   2          P3IO&=~(1<<c);
+ 194   2          // P4PU&=~(1<<c);
+ 195   2          // P4IO&=~(1<<c);
+ 196   2          // P5PU&=~(1<<c);
+ 197   2          // P5IO&=~(1<<c);
+ 198   2        }   
+ 199   1        if(fOCDMode)
+ 200   1          while((P0&0xF9)!=0x00) ; 
+ 201   1        else 
+ 202   1          while(P0!=0x00) ; 
+ 203   1        while(P1!=0x00) ; 
+ 204   1        while(P2!=0x00) ; 
+ 205   1        while(P3!=0x00) ; 
+ 206   1        // while(P4!=0x00) ; 
+ 207   1        // while(P5!=0x00) ; 
+ 208   1      #endif    
+ 209   1      
+ 210   1        _nop_();
+ 211   1        
+ 212   1        //digital_input_blocking 
+ 213   1      #if A96T418_MODE==1 
+                P0FSRH=0xaa;//P04/AN0, P05/AN1, P06/AN2, P07/AN3
+                P0FSRL=0x80;//P03/AN7
+                P1FSRL=0x2a;//P10/AN4, P11/AN5, P12/AN6 
+              #endif    
+ 218   1      #if A96T418_MODE==0   
+ 219   1        P0FSRH=0xaa;
+ 220   1        P0FSRL=0xaa;
+ 221   1        P2FSRH=0xaa;
+ 222   1        P2FSRL=0xaa;
+ 223   1        P3FSR=0x0aa;
+ 224   1        // P4FSRH=0xaa;
+ 225   1        // P4FSRL=0xaa;
+ 226   1        // P5FSRH=0xaa;
+ 227   1        // P5FSRL=0xaa;
+ 228   1      #endif    
+ 229   1      
+ 230   1      #if A96T418_MODE==1   
+                while((P0&0xF8)!=0x00) ; 
+                while((P1&0x07)!=0x00) ; 
+              #endif
+ 234   1      #if A96T418_MODE==0   
+ 235   1        if(fOCDMode)
+ 236   1          while((P0&0xF9)!=0xF9) ; 
+ 237   1        else 
+ 238   1          while(P0!=0xFF) ; 
+C51 COMPILER V9.60.7.0   MAIN                                                              02/05/2025 09:26:17 PAGE 5   
+
+ 239   1        while(P1!=0xFF) ; 
+ 240   1        while(P2!=0xFF) ; 
+ 241   1        while(P3!=0x03) ; 
+ 242   1        // while(P4!=0xFF) ; 
+ 243   1        // while(P5!=0xFF) ; 
+ 244   1      #endif  
+ 245   1      }
+ 246          
+ 247          void GPIO_outputLow_outputHigh_test(void)
+ 248          {
+ 249   1        uint8_t c;
+ 250   1        for(c=0;c<8;c++)
+ 251   1        {
+ 252   2          P0&=~(1<<c);
+ 253   2          P0IO|=(1<<c);
+ 254   2          P1&=~(1<<c);
+ 255   2          P1IO|=(1<<c);
+ 256   2          P2&=~(1<<c);
+ 257   2          P2IO|=(1<<c);
+ 258   2          P3&=~(1<<c);
+ 259   2          P3IO|=(1<<c);
+ 260   2      // #if A96T418_MODE==0    
+ 261   2      //    P4&=~(1<<c);
+ 262   2      //    P4IO|=(1<<c);
+ 263   2      //    P5&=~(1<<c);
+ 264   2      //    P5IO|=(1<<c);
+ 265   2      // #endif   
+ 266   2        }     
+ 267   1        for(c=0;c<8;c++)
+ 268   1        {
+ 269   2          P0|=(1<<c);
+ 270   2          P0IO|=(1<<c);
+ 271   2          P1|=(1<<c);
+ 272   2          P1IO|=(1<<c);
+ 273   2          P2|=(1<<c);
+ 274   2          P2IO|=(1<<c);
+ 275   2          P3|=(1<<c);
+ 276   2          P3IO|=(1<<c);
+ 277   2      // #if A96T418_MODE==0    
+ 278   2      //    P4|=(1<<c);
+ 279   2      //    P4IO|=(1<<c);
+ 280   2      //    P5|=(1<<c);
+ 281   2      //    P5IO|=(1<<c);
+ 282   2      // #endif   
+ 283   2        }   
+ 284   1      }
+ 285          
+ 286          void GPIO_outputLow_outputHigh_Opendrain_test(void)
+ 287          {
+ 288   1        uint8_t c;
+ 289   1        for(c=0;c<8;c++)
+ 290   1        {
+ 291   2          P0&=~(1<<c);
+ 292   2          P0OD&=~(1<<c);
+ 293   2          P0PU&=~(1<<c);
+ 294   2          P0IO|=(1<<c);
+ 295   2          P1&=~(1<<c);
+ 296   2          P1OD&=~(1<<c);
+ 297   2          P1PU&=~(1<<c);
+ 298   2          P1IO|=(1<<c);
+ 299   2          P2&=~(1<<c);
+ 300   2          P2OD&=~(1<<c);
+C51 COMPILER V9.60.7.0   MAIN                                                              02/05/2025 09:26:17 PAGE 6   
+
+ 301   2          P2PU&=~(1<<c);
+ 302   2          P2IO|=(1<<c);
+ 303   2          P3&=~(1<<c);
+ 304   2          //P3OD&=~(1<<c);
+ 305   2          P3PU&=~(1<<c);
+ 306   2          P3IO|=(1<<c);
+ 307   2      // #if A96T418_MODE==0    
+ 308   2      //    P4&=~(1<<c);
+ 309   2      //    P4OD&=~(1<<c);
+ 310   2      //    P4PU&=~(1<<c);
+ 311   2      //    P4IO|=(1<<c);
+ 312   2      //    P5&=~(1<<c);
+ 313   2      //    P5OD&=~(1<<c);
+ 314   2      //    P5PU&=~(1<<c);
+ 315   2      //    P5IO|=(1<<c);
+ 316   2      // #endif   
+ 317   2        }     
+ 318   1        for(c=0;c<8;c++)
+ 319   1        {
+ 320   2          P0|=(1<<c);
+ 321   2          P0OD|=(1<<c);
+ 322   2          P0PU|=(1<<c);
+ 323   2          P0IO|=(1<<c);
+ 324   2          P1|=(1<<c);
+ 325   2          P1OD|=(1<<c);
+ 326   2          P1PU|=(1<<c);
+ 327   2          P1IO|=(1<<c);
+ 328   2          P2|=(1<<c);
+ 329   2          P2OD|=(1<<c);
+ 330   2          P2PU|=(1<<c);
+ 331   2          P2IO|=(1<<c);
+ 332   2          P3|=(1<<c);
+ 333   2          //P3OD|=(1<<c);
+ 334   2          P3PU|=(1<<c);
+ 335   2          P3IO|=(1<<c);
+ 336   2      // #if A96T418_MODE==0    
+ 337   2      //    P4|=(1<<c);
+ 338   2      //    P4OD|=(1<<c);
+ 339   2      //    P4PU|=(1<<c);
+ 340   2      //    P4IO|=(1<<c);
+ 341   2      //    P5|=(1<<c);
+ 342   2      //    P5OD|=(1<<c);
+ 343   2      //    P5PU|=(1<<c);
+ 344   2      //    P5IO|=(1<<c);
+ 345   2      // #endif   
+ 346   2        }   
+ 347   1      }
+ 348          
+ 349          void PPG_mode_set_check()
+ 350          {
+ 351   1        Timer2_SetPPGPolarity(T2_START_LOW); //default High 
+ 352   1        /* Timer2 PWM2O port (Alternative function) */
+ 353   1        //Port_SetAlterFunctionpin(PORT1, PIN2, 0x3);
+ 354   1        Port_SetAlterFunctionpin(PORT4, PIN4, 0x1);
+ 355   1          /* Enable timer2 match INT */   
+ 356   1        //Timer2_ConfigureInterrupt(TRUE);  
+ 357   1        
+ 358   1          //Period=15200us, Duty=3200us
+ 359   1          Timer2_Initial(T2_PPG_REPEAT_MODE, TIMER2_DIV512);//32us
+ 360   1          Timer2_SetPPGPeriodCounter(500); //15200us
+ 361   1          Timer2_SetPPGDutyCounter(100); //3200us
+ 362   1          Timer2_Start(); 
+C51 COMPILER V9.60.7.0   MAIN                                                              02/05/2025 09:26:17 PAGE 7   
+
+ 363   1          
+ 364   1          //Timer2_Stop();    
+ 365   1      }
+ 366          
+ 367          /**********************************************************************
+ 368           * @brief   Main program
+ 369           * @param     None
+ 370           * @return      None
+ 371           **********************************************************************/
+ 372          void Main()
+ 373          {
+ 374   1          unsigned char test_mode;
+ 375   1          unsigned char i = 0, j=0;
+ 376   1          /* Disable INT. during peripheral setting */
+ 377   1        //GLOBAL_INTERRUPT_DIS();     
+ 378   1       
+ 379   1          /* Port intialize */
+ 380   1        //Port_Initial();           
+ 381   1          /* Clock 16Mhz initialize */
+ 382   1        //System_Clock_Initial(HSI16_DIV1);     
+ 383   1          
+ 384   1          /* Enable INT */
+ 385   1        //GLOBAL_INTERRUPT_EN();    
+ 386   1      
+ 387   1        //test_mode=0;  //inputFloating_inputPullup_test
+ 388   1        //test_mode=1; //outputLow_outputHigh_test
+ 389   1        test_mode=2; //GPIO_outputLow_outputHigh_Opendrain_test
+ 390   1        //test_mode=3; //digital_input_blocking_test
+ 391   1        //test_mode=4;   //debounce test  
+ 392   1          
+ 393   1        while(1)
+ 394   1        {
+ 395   2          if(test_mode==0)
+ 396   2            GPIO_inputFloating_inputPullup_test();
+ 397   2          else if(test_mode==1)
+ 398   2            GPIO_outputLow_outputHigh_test();
+ 399   2          else if(test_mode==2)
+ 400   2            GPIO_outputLow_outputHigh_Opendrain_test();
+ 401   2          else if(test_mode==3)
+ 402   2            GPIO_digital_input_blocking_test();
+ 403   2          else if(test_mode==4)
+ 404   2          {
+ 405   3            //PPG output(P44) , Port input (P10), Connect each other 
+ 406   3            PPG_mode_set_check(); 
+ 407   3      // #if A96T418_MODE==0    
+ 408   3      //      //Send P10 read value to P46, P47  
+ 409   3      //      P4IO|=(1<<7); //P47 putput mode 
+ 410   3      //      P4IO|=(1<<6); //P46 putput mode 
+ 411   3            
+ 412   3      //      //default 600ns //Debounce Control Disable 
+ 413   3      //      DBCONT1|=0x01; //Debounce Control Enable 
+ 414   3      //      //DBCONT3=0;//Fx //820ns  
+ 415   3      //      //DBCONT3=1;//Fx/4  //1850ns 
+ 416   3      //      //DBCONT3=2;//Fx/4  //1280us 
+ 417   3      //      DBCONT3=3;//LSI  //144us 
+ 418   3      
+ 419   3      //       /* Infinite loop */
+ 420   3      //      while(1) 
+ 421   3      //      {
+ 422   3      //        // P47=P10;
+ 423   3      //        // P46=P10;
+ 424   3      //      }
+C51 COMPILER V9.60.7.0   MAIN                                                              02/05/2025 09:26:17 PAGE 8   
+
+ 425   3      // #endif           
+ 426   3          }
+ 427   2        }
+ 428   1        
+ 429   1      }
+ 430          
+ 431          /* --------------------------------- End Of File ------------------------------ */
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  2 ERROR(S)

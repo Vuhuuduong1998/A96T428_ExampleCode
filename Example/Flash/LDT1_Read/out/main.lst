@@ -1,0 +1,134 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              11/20/2024 17:19:27 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\out\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE src\main.c LARGE OPTIMIZE(0,SPEED) REGFILE(.\out\a96T428_LDT1_Read.ORC) 
+                    -BROWSE INCDIR(.\src) DEBUG OBJECTEXTEND PRINT(.\out\main.lst) TABS(2) OBJECT(.\out\main.obj)
+
+line level    source
+
+   1          /**
+   2           *******************************************************************************
+   3           * @file        Main.c
+   4           * @author      ABOV R&D Division
+   5           * @brief       Main Example Code
+   6           *
+   7           * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+   8           *
+   9           * This file is licensed under terms that are found in the LICENSE file
+  10           * located at Document directory.
+  11           * If this file is delivered or shared without applicable license terms,
+  12           * the terms of the BSD-3-Clause license shall be applied.
+  13           * Reference: https://opensource.org/licenses/BSD-3-Clause
+  14           ******************************************************************************/
+  15          
+  16          /* Includes ------------------------------------------------------------------*/
+  17          #include "intrins.h"
+  18          #include "delay.h"
+  19          #include "a96T428_flash.h"
+  20          #include "a96T428_gpio.h"
+  21          #include "a96T428_clock.h"
+  22          #include "a96T428_usart1_uart.h"
+  23          #include "stdio.h"  
+  24          #include  "a96T428_flash.h" 
+  25          #include "a96T428_timer2.h"
+  26          
+  27          #include "trim.h"  
+  28          
+  29          /* Private Pre-processor Definition & Macro ----------------------------------*/
+  30          /* Private Typedef -----------------------------------------------------------*/
+  31          /* Private Variable ----------------------------------------------------------*/
+  32          
+  33          
+  34          
+  35          //uint8_t write_data[FLASH_MYBUFFER_SIZE] _at_ 0x100;
+  36          //uint8_t read_data[FLASH_MYBUFFER_SIZE];
+  37          unsigned char code *read_data=0x0000;
+  38            
+  39          /* Private Function Prototype ------------------------------------------------*/
+  40          
+  41          //------------------------------------------------------------------------------
+  42          //  Project include function code
+  43          //------------------------------------------------------------------------------
+  44          char putchar (char c)   /* character to output */
+  45          {
+  46   1        while(!(USTAT & (UDRE)));
+  47   1        UDATA = c;
+  48   1        while(!(USTAT & (TXC)));
+  49   1        USTAT &= ~TXC;
+  50   1        return c;
+  51   1      }
+  52          
+  53          void Display_project(void)
+  54          {
+C51 COMPILER V9.60.0.0   MAIN                                                              11/20/2024 17:19:27 PAGE 2   
+
+  55   1        //System_Clock_Initial(HSI16_DIV1);         
+  56   1          /* System Stabilize Delay */
+  57   1        //NOP_10us_Delay(1);         // 10usec
+  58   1        
+  59   1        /*Set Alernative Function for USART P16(RXD1) / P17(TXD1)*/
+  60   1        Port_SetInputpin(PORT1, PIN6, TRUE); //input pullup enable
+  61   1        Port_SetAlterFunctionpin(PORT1, PIN6, 0x3);
+  62   1        Port_SetAlterFunctionpin(PORT1, PIN7, 0x3);
+  63   1        
+  64   1        USART1_UART_Initial(9600, USART1_DATA_8BIT, USART1_STOP_1BIT, USART1_PARITY_NO, USART1_TX_RX_MODE);
+  65   1        
+  66   1        printf("\n\ra96T428 TRIM TEST!!\n\r");
+  67   1      }
+  68          
+  69          void CodeMemoryDisplay(uint16_t start_addr, uint16_t end_addr)
+  70          {
+  71   1        uint16_t i;
+  72   1        for(i = 0; i < (end_addr-start_addr+1) ; i++)
+  73   1        { 
+  74   2          //if((i%32)>=4)
+  75   2          //  continue;
+  76   2          if((i%32)==0)
+  77   2            printf("\n\r %04x : ", start_addr+i);
+  78   2          printf("%02X ", read_data[i]&0xFFU);    
+  79   2        }
+  80   1      }
+  81          
+  82          /* Public Function -----------------------------------------------------------*/
+  83          
+  84          /**********************************************************************
+  85           * @brief   Main program
+  86           * @param     None
+  87           * @return      None
+  88           **********************************************************************/
+  89          void main(void)
+  90          {
+  91   1        Display_project();
+  92   1          
+  93   1        //Trim value monitoring 
+  94   1        TRIM_Register_monitor();
+  95   1        
+  96   1        // OCD/USER MODE LDT1 Read
+  97   1        TRIM_TableBuffer_read(0x400);
+  98   1        Trim_TableBuffer_monitor(0x400);
+  99   1      
+ 100   1      
+ 101   1        while(1) { 
+ 102   2          NOP_10us_Delay(50000); //0.5s wait
+ 103   2        }
+ 104   1      }
+ 105          
+ 106          /* --------------------------------- End Of File ------------------------------ */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    334    ----
+   CONSTANT SIZE    =     41    ----
+   XDATA SIZE       =      9    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+C51 COMPILER V9.60.0.0   MAIN                                                              11/20/2024 17:19:27 PAGE 3   
+
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

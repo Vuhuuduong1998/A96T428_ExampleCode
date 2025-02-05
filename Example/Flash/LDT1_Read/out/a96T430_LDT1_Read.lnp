@@ -1,0 +1,14 @@
+".\out\main.obj",
+".\out\flash_enter.obj",
+".\out\delay.obj",
+".\out\trim.obj",
+".\out\a96T428_clock.obj",
+".\out\a96T428_flash.obj",
+".\out\a96T428_gpio.obj",
+".\out\a96T428_usart1_uart.obj",
+".\out\a96T428_timer2.obj",
+".\out\startup.obj" 
+TO ".\out\a96T428_LDT1_Read" REGFILE (.\out\a96T428_LDT1_Read.ORC) 
+PRINT(".\out\a96T428_LDT1_Read.m51") RAMSIZE(256) 
+CODE( 0X0000-0X7FFF )
+XDATA( 0X0000-0X0EFF )

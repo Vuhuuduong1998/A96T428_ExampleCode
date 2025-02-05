@@ -1,0 +1,68 @@
+A51 MACRO ASSEMBLER  FLASH_ENTER                                                          11/20/2024 17:19:27 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\out\flash_enter.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE src\flash_enter.a51 SET(LARGE) DEBUG PRINT(.\out\flash_enter.lst) OBJEC
+                      T(.\out\flash_enter.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     
+                       2     $nomod51 
+                       3     
+                       4     NAME    CODEASM
+                       5     
+                       6     _Flash_                SEGMENT CODE
+                       7             
+                       8             PUBLIC  Flash_Enter
+                       9             PUBLIC  _Flash_LoadData
+                      10     
+----                  11             RSEG  _Flash_
+0000                  12     _Flash_LoadData:
+0000 EF               13               mov a, r7
+0001 8C83             14               mov dph, r4
+0003 8D82             15               mov dpl, r5
+0005 A5               16               db  0a5H              ;download @dptr with Acc. movc @(dptr++),a
+0006 22               17             RET     
+                      18     ; END OF _Flash_LoadData
+                      19     
+0007                  20     Flash_Enter:
+0007 74AA             21               mov a, #0aaH         ;load Acc with AAH
+0009 7583F5           22               mov dph, #0f5H       ;load DPH with F5H
+000C 758255           23               mov dpl, #55H       ;load DPL with 55H
+000F A5               24               db  0a5H              ;download @dptr with Acc. movc @(dptr++),a
+                      25     
+0010 7455             26               mov a, #55H         ;load Acc with 55H
+0012 7583FA           27               mov dph, #0faH       ;load DPH with FAH
+0015 7582AA           28               mov dpl, #0aaH       ;load DPL with AAH
+0018 A5               29               db  0a5H              ;download @dptr with Acc. movc @(dptr++),a
+                      30     
+0019 74A5             31               mov a, #0a5H         ;load Acc with A5H
+001B 7583F5           32               mov dph, #0f5H       ;load DPH with F5H
+001E 758255           33               mov dpl, #55H       ;load DPL with 55H
+0021 A5               34               db  0a5H              ;download @dptr with Acc. movc @(dptr++),a
+0022 22               35             RET     
+                      36     ; END OF Flash_Enter
+                      37     
+                      38             END
+A51 MACRO ASSEMBLER  FLASH_ENTER                                                          11/20/2024 17:19:27 PAGE     2
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+CODEASM. . . . . .  N NUMB   -----       
+DPH. . . . . . . .  D ADDR   0083H   A   
+DPL. . . . . . . .  D ADDR   0082H   A   
+FLASH_ENTER. . . .  C ADDR   0007H   R   SEG=_FLASH_
+_FLASH_. . . . . .  C SEG    0023H       REL=UNIT
+_FLASH_LOADDATA. .  C ADDR   0000H   R   SEG=_FLASH_
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

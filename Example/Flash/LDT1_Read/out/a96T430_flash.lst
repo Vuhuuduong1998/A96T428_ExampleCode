@@ -1,0 +1,646 @@
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE a96T428_FLASH
+OBJECT MODULE PLACED IN .\out\a96T428_flash.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE src\a96T428_flash.c LARGE OPTIMIZE(0,SPEED) REGFILE(.\out\a96T428_LDT1_R
+                    -ead.ORC) BROWSE INCDIR(.\src) DEBUG OBJECTEXTEND PRINT(.\out\a96T428_flash.lst) TABS(2) OBJECT(.\out\a96T428_flash.obj)
+
+line level    source
+
+   1          /**
+   2           *******************************************************************************
+   3           * @file        a96T428_flash.c
+   4           * @author      ABOV R&D Division
+   5           * @brief       Flash Source File
+   6           *
+   7           * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+   8           *
+   9           * This file is licensed under terms that are found in the LICENSE file
+  10           * located at Document directory.
+  11           * If this file is delivered or shared without applicable license terms,
+  12           * the terms of the BSD-3-Clause license shall be applied.
+  13           * Reference: https://opensource.org/licenses/BSD-3-Clause
+  14           ******************************************************************************/
+  15          
+  16          
+  17          /*******************************************************************************
+  18          * Included File
+  19          *******************************************************************************/
+  20          #include  "a96T428_flash.h" 
+  21          
+  22          /*******************************************************************************
+  23          * Private Pre-processor Definition & Macro
+  24          *******************************************************************************/
+  25          
+  26          /*******************************************************************************
+  27          * Private Typedef
+  28          *******************************************************************************/
+  29          
+  30          /*******************************************************************************
+  31          * Private Variable
+  32          *******************************************************************************/
+  33          // User ID global value
+  34          unsigned int User_ID;
+  35          
+  36          unsigned char *target_buf;
+  37          unsigned int target_bufsize;
+  38          unsigned int target_addr_start, target_addr_end;
+  39          /*******************************************************************************
+  40          * Private Function Prototype
+  41          *******************************************************************************/
+  42          
+  43          /*******************************************************************************
+  44          * Public Function
+  45          *******************************************************************************/
+  46          // from flash_enter.a51
+  47          extern void Flash_LoadData(unsigned char dt, unsigned int add);
+  48          extern void Flash_Enter(void);
+  49          
+  50          /**
+  51          * @brief  Safety code operation of flash memory initialization.
+  52          * @param    None
+  53          * @return None
+  54          */
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 2   
+
+  55          void Init_Flash()
+  56          {
+  57   1        //Init User_ID
+  58   1        User_ID = 0;
+  59   1      
+  60   1        // Set Flash Sector Address as Dummy address
+  61   1        FEARH = (FLASH_ADDR_DUMMY >> 16) & 0x0f;  //Flash Sector Address High Register
+  62   1        FEARM = (FLASH_ADDR_DUMMY >> 8) & 0xff; //Flash Sector Address Middle Register
+  63   1        FEARL = (FLASH_ADDR_DUMMY >> 0) & 0xff; //Flash Sector Address Low Register
+  64   1      }
+  65          
+  66          /**
+  67          * @brief  Update Flash buffer for writing flash memory.
+  68          * @param    buf   This parameter contains the buffer of writing Flash memory.
+  69          * @param    buf_size  This parameter contains the size of data.
+  70          * @return None
+  71          */
+  72          void Update_Flash_Buf(unsigned int addr_start, unsigned int addr_end, unsigned char *buf, unsigned int buf
+             -_size)
+  73          {
+  74   1        //Flash Buffer Update
+  75   1        User_ID = FLASH_USER_ID;
+  76   1        target_addr_start=addr_start;
+  77   1        target_addr_end=addr_end;
+  78   1        target_buf = buf;
+  79   1        target_bufsize = buf_size;
+  80   1      }
+  81          
+  82          /**
+  83          * @brief  Update flash memory for writing flash memory.
+  84          * @param    key   This parameter contains the address of Flash memory.
+  85          *
+  86          *         - safety code for operation of flash memory
+  87          * @return None
+  88          */
+  89            static unsigned long paddr;
+  90            static unsigned long paddrSize;
+  91          unsigned char Update_Flash(unsigned int key, uint8_t bErase, uint8_t bWrite)
+  92          {
+  93   1        unsigned char ret = 0;
+  94   1        unsigned int Size = 0;
+  95   1        unsigned char *buf;
+  96   1      
+  97   1        if(target_addr_start>target_addr_end)
+  98   1          while(1);
+  99   1        
+ 100   1        if(key == FLASH_KEY)
+ 101   1        {
+ 102   2          if(User_ID == FLASH_USER_ID)
+ 103   2          {   
+ 104   3            buf=target_buf;
+ 105   3            paddr = (unsigned long)target_addr_start;
+ 106   3            paddrSize = (unsigned long)(target_addr_end-target_addr_start+1);
+ 107   3            
+ 108   3            while(paddrSize > 0)
+ 109   3            {               
+ 110   4              if((paddr<target_addr_start)||(paddr>target_addr_end))
+ 111   4                break;
+ 112   4              if(buf>=(target_buf+target_bufsize))
+ 113   4                break;
+ 114   4              
+ 115   4              if(paddr%PAGE_BUFFER_SIZE) //if not start of page addr
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 3   
+
+ 116   4              {
+ 117   5                Size=PAGE_BUFFER_SIZE-(paddr%PAGE_BUFFER_SIZE);
+ 118   5                paddrSize -= Size;
+ 119   5              }
+ 120   4              else
+ 121   4              {                 
+ 122   5                if(paddrSize < PAGE_BUFFER_SIZE)
+ 123   5                {
+ 124   6                  Size = paddrSize;
+ 125   6                  paddrSize = 0;
+ 126   6                }
+ 127   5      #if A96T418_MODE==0
+ 128   5                else if((paddrSize >= SECTOR_BUFFER_SIZE) && (((paddr%SECTOR_BUFFER_SIZE)==0))) 
+ 129   5                {
+ 130   6                  Size = SECTOR_BUFFER_SIZE;
+ 131   6                  paddrSize -= Size;//SECTOR_BUFFER_SIZE;
+ 132   6                }
+ 133   5      #endif        
+ 134   5                else
+ 135   5                {
+ 136   6                  Size = PAGE_BUFFER_SIZE;
+ 137   6                  paddrSize -= Size;//PAGE_BUFFER_SIZE;
+ 138   6                }
+ 139   5              }
+ 140   4              
+ 141   4              if(bErase)
+ 142   4              {
+ 143   5                ret = Page_Erase_Flash(FLASH_KEY, paddr, Size);
+ 144   5                if(ret)
+ 145   5                {
+ 146   6                  _nop_();
+ 147   6                  break;
+ 148   6                }
+ 149   5              }
+ 150   4              if(bWrite)
+ 151   4              {
+ 152   5                if(bWrite==1)
+ 153   5                  ret = Page_Write_Flash(FLASH_KEY, paddr, Size, buf);
+ 154   5                else if(bWrite==(u8)0xff)  //prewrite 0x00
+ 155   5                  ret = Page_Write_Flash(FLASH_KEY, paddr, Size, 0); //prewrite 0x00
+ 156   5                  
+ 157   5                if(ret)
+ 158   5                {
+ 159   6                  _nop_();
+ 160   6                  break;
+ 161   6                }
+ 162   5              }
+ 163   4              paddr = paddr + Size;
+ 164   4              buf=buf + Size;
+ 165   4              
+ 166   4            }
+ 167   3          }
+ 168   2          else 
+ 169   2          {
+ 170   3            while(1);
+ 171   3          }
+ 172   2          User_ID = 0;
+ 173   2        }
+ 174   1        else 
+ 175   1        {
+ 176   2          while(1);
+ 177   2        }
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 4   
+
+ 178   1        return ret;
+ 179   1      }
+ 180          
+ 181          
+ 182          
+ 183          /**
+ 184          * @brief  Erase operation of flash memory.
+ 185          * @param    key   This parameter contains the address of Flash memory.
+ 186          *
+ 187          *         - safety code for operation of flash memory
+ 188          * @param    sector_address  This parameter contains the address of Flash memory.
+ 189          *
+ 190          *         - address range : 32kbytes(0x0 ~ 0x7FFF)
+ 191          * @return status(0 : OK, 1/2 : Failed)
+ 192          */
+ 193          unsigned long sector_addresstmp;
+ 194          unsigned char Page_Erase_Flash(unsigned int key, unsigned long sector_address, unsigned int buf_size)
+ 195          {
+ 196   1        unsigned char code *rom_addr = 0x0000;
+ 197   1        unsigned int i = 0;
+ 198   1        unsigned char tmp = 0;
+ 199   1        unsigned char tmp2 = 0;
+ 200   1        unsigned char ret = 0;
+ 201   1      
+ 202   1        //Disable EA
+ 203   1        tmp = IE;
+ 204   1        //IE &= (~0x80);
+ 205   1      
+ 206   1        
+ 207   1        //LVI enalbe, safety code
+ 208   1        tmp2 = LVICR;
+ 209   1        //LVICR = 0x10 | FLASH_LVI;
+ 210   1      
+ 211   1        if((sector_address+buf_size) > (unsigned long)target_addr_end) 
+ 212   1          buf_size=(target_addr_end-sector_address+1)&0xffff;
+ 213   1        if((sector_address+buf_size)<(unsigned long)target_addr_start)
+ 214   1        {
+ 215   2          ret=0x80; //address range Failure
+ 216   2          return ret;
+ 217   2        }
+ 218   1          
+ 219   1        if(key == FLASH_KEY)
+ 220   1        {
+ 221   2          key ^= FLASH_XOR;
+ 222   2      
+ 223   2          if(buf_size && (sector_address>=(unsigned long)target_addr_start) && (sector_address <= (unsigned long)t
+             -arget_addr_end) )
+ 224   2          {
+ 225   3            // Enable program mode
+ 226   3            Flash_Enter();
+ 227   3      
+ 228   3      #if A96T418_MODE==0
+ 229   3            // erase
+ 230   3            FEMR = 0x81;  // Select flash and enable control. //FSEL, FEEN
+ 231   3            _nop_( ); //Dummy instruction, This instruction must be needed.
+ 232   3            _nop_( ); //Dummy instruction, This instruction must be needed.
+ 233   3            _nop_( ); //Dummy instruction, This instruction must be needed. 
+ 234   3            FEMR = 0x91;      // Set Erase mode.   //FSEL, PGM, FEEN
+ 235   3      #endif      
+ 236   3      #if A96T418_MODE==1
+                    // erase
+                    FEMR = 0x81;  // Select flash and enable control.
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 5   
+
+                    FECR = 0x02;  // Reset page buffer.
+                    _nop_( ); //Dummy instruction, This instruction must be needed.
+                    _nop_( ); //Dummy instruction, This instruction must be needed.
+                    _nop_( ); //Dummy instruction, This instruction must be needed.
+                    FEMR = 0x89;  // Select page buffer.
+              
+                    //write data to pagebuffer
+                    for(i=0;i<buf_size;i++){
+                      Flash_LoadData(0, sector_address+i);
+                    }
+              
+                    FEMR = 0x91;      // Set Erase mode.
+                    FETCR = WAITTIME; // Set Erase time. 
+              #endif
+ 253   3            
+ 254   3            // Set Flash Sector Address as used area
+ 255   3            FEARH = (sector_address >> 16) & 0xFF;
+ 256   3            FEARM = (sector_address >> 8) & 0xFF;
+ 257   3            FEARL = (sector_address) & 0xFF;
+ 258   3            sector_addresstmp=sector_address;
+ 259   3      
+ 260   3            //Check Power stable by LVI 
+ 261   3            LVICR &= ~0x20;
+ 262   3            if((LVICR & 0x20) == 0x00)
+ 263   3            {
+ 264   4              // Check User_ID
+ 265   4              if(User_ID == FLASH_USER_ID)
+ 266   4              {
+ 267   5                // Check valid of Flash Sector Address range
+ 268   5                if( (sector_address>=(unsigned long)target_addr_start) && (sector_address <= (unsigned long)target_ad
+             -dr_end) )
+ 269   5                {
+ 270   6                  if((key ^ FLASH_XOR) == FLASH_KEY)
+ 271   6                  {
+ 272   7      #if A96T418_MODE==0
+ 273   7                    //write data to load      
+ 274   7                    if(1)
+ 275   7                    {
+ 276   8                      if(buf_size==SECTOR_BUFFER_SIZE)
+ 277   8                      {
+ 278   9                        P2IO|=0x1;
+ 279   9                        P20=1;
+ 280   9                        FECR=0x4A; // Start Erase.  //SECT, nFERST, WRITE
+ 281   9                        _nop_(); //one nop recommended
+ 282   9                        while ( !( FESR & 0x80));  // Read status register.     //PEVBSY
+ 283   9                        P20=0;
+ 284   9                        _nop_();
+ 285   9                      }
+ 286   8                      else //if(buf_size==PAGE_BUFFER_SIZE)
+ 287   8                      {
+ 288   9                        P2IO|=0x1;
+ 289   9                        P20=1;
+ 290   9                        FECR=0x0A; // Start Erase.  //nFERST, WRITE
+ 291   9                        _nop_(); //one nop recommended
+ 292   9                        while ( !( FESR & 0x80));  // Read status register.     //PEVBSY
+ 293   9                        P20=0;
+ 294   9                        _nop_();
+ 295   9                      }               
+ 296   8                    }         
+ 297   7      #endif              
+ 298   7      #if A96T418_MODE==1
+                            // Flase Erase
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 6   
+
+                            FECR = 0x0B;  // Start Erase.
+                            _nop_();//Dummy instruction, This instruction must be needed.
+                            while( !( FESR & 0x80));    // Read status register.
+                            _nop_();
+              #endif              
+ 305   7                  }
+ 306   6                  
+ 307   6                  FEMR=0x00;  //          
+ 308   6                  Flash_Exit();                 // Set flash to normal mode.
+ 309   6                  //verify data
+ 310   6      //            for(i = 0; i < buf_size; i++)
+ 311   6      //            {
+ 312   6      //              if(rom_addr[sector_address + i] != FLASH_BLABK_TATA)
+ 313   6      //              {
+ 314   6      //                ret = 2;
+ 315   6      //                break;
+ 316   6      //              }
+ 317   6      //            }
+ 318   6                }
+ 319   5                else
+ 320   5                  ret=0x80; //address range Failure
+ 321   5              }
+ 322   4              else
+ 323   4                ret=0x80;       
+ 324   4            }
+ 325   3            else
+ 326   3            {
+ 327   4              ret = 1;//LVI error
+ 328   4            }
+ 329   3            Flash_Exit();                 // Set flash to normal mode.
+ 330   3            // Set Flash Sector Address as Dummy address
+ 331   3            FEARH = (FLASH_ADDR_DUMMY >> 16) & 0x0f;  //Flash Sector Address High Register
+ 332   3            FEARM = (FLASH_ADDR_DUMMY >> 8) & 0xff;   //Flash Sector Address Middle Register
+ 333   3            FEARL = (FLASH_ADDR_DUMMY >> 0) & 0xff;   //Flash Sector Address Low Register
+ 334   3          }       
+ 335   2          else
+ 336   2            ret=0x80; //address range Failure
+ 337   2        }
+ 338   1        else 
+ 339   1          ret=0x80; //
+ 340   1        LVICR = tmp2;
+ 341   1        //IE = tmp;
+ 342   1        
+ 343   1        return ret;
+ 344   1      }
+ 345          
+ 346          
+ 347          /**
+ 348          * @brief  Wrtie operation of flash memory.
+ 349          * @param    key   This parameter contains the address of Flash memory.
+ 350          *
+ 351          *         - safety code for operation of flash memory
+ 352          * @param    sector_address  This parameter contains the address of Flash memory.
+ 353          *
+ 354          *         - address range : 32kbytes(0x0 ~ 0x7FFF)
+ 355          * @param    buf_size  This parameter contains the size of writing Flash data.
+ 356          * @param    buf   This parameter contains the buffer of writing Flash data
+ 357          * @return status(0 : OK, 1/4 : Failed)
+ 358          */
+ 359          unsigned char Page_Write_Flash(unsigned int key, unsigned long sector_address, unsigned int buf_size, unsi
+             -gned char *buf)
+ 360          {
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 7   
+
+ 361   1        unsigned long pdtBuf=0x00; //for prewrite 0x00
+ 362   1        static unsigned char *pdt;
+ 363   1        unsigned char code *rom_addr=0x0000;
+ 364   1        unsigned int i = 0;
+ 365   1        unsigned char tmp = 0;
+ 366   1        unsigned char tmp2 = 0;
+ 367   1        unsigned int tmp3 = 0;
+ 368   1        unsigned char ret = 0;
+ 369   1            
+ 370   1        //Disable EA
+ 371   1        tmp = IE;
+ 372   1        //IE &= (~0x80);
+ 373   1        
+ 374   1        //LVI enalbe, 2.32V
+ 375   1        tmp2 = LVICR;
+ 376   1        //LVICR = 0x10 | FLASH_LVI;
+ 377   1      
+ 378   1        if((sector_address+buf_size) > (unsigned long)target_addr_end) 
+ 379   1          buf_size=(target_addr_end-sector_address+1)&0xffff;
+ 380   1        if((sector_address+buf_size)<(unsigned long)target_addr_start)
+ 381   1        {
+ 382   2          ret=0x80; //address range Failure
+ 383   2          return ret;
+ 384   2        }
+ 385   1        
+ 386   1        if(key == FLASH_KEY)
+ 387   1        {
+ 388   2          key ^= FLASH_XOR;
+ 389   2      
+ 390   2          if(buf_size && (sector_address>=(unsigned long)target_addr_start) && (sector_address <= (unsigned long)t
+             -arget_addr_end) )
+ 391   2          {
+ 392   3            // Enable program mode
+ 393   3            Flash_Enter();
+ 394   3      
+ 395   3      #if A96T418_MODE==0
+ 396   3            // write
+ 397   3            FEMR = 0x81;  // Select flash and enable control. //FSEL, FEEN
+ 398   3            //FECR = 0x02;  // Reset page buffer.
+ 399   3            _nop_( ); //Dummy instruction, This instruction must be needed.
+ 400   3            _nop_( ); //Dummy instruction, This instruction must be needed.
+ 401   3            _nop_( ); //Dummy instruction, This instruction must be needed.
+ 402   3            FEMR = 0xA1;            // Set write mode.  //FSEL, PGM, FEEN
+ 403   3      #endif      
+ 404   3      #if A96T418_MODE==1
+                    // write
+                    FEMR = 0x81;  // Select flash and enable control.
+                    FECR = 0x02;  // Reset page buffer.
+                    _nop_( ); //Dummy instruction, This instruction must be needed.
+                    _nop_( ); //Dummy instruction, This instruction must be needed.
+                    _nop_( ); //Dummy instruction, This instruction must be needed.
+                    FEMR = 0x89;  // Select page buffer.
+              
+                    //write data to pagebuffer      
+                    pdt = buf;
+                    for(i=0;i<buf_size;i++){
+                      Flash_LoadData(*pdt, (unsigned long)(sector_address+i)); 
+                      pdt++;
+                    }
+                    
+                    FEMR = 0xA1;            // Set write mode.
+                    FETCR = WAITTIME;       // Set Erase time. 
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 8   
+
+              #endif      
+ 423   3            
+ 424   3            // Set Flash Sector Address as used area
+ 425   3            FEARH = (sector_address >> 16) & 0xFF;
+ 426   3            FEARM = (sector_address >> 8) & 0xFF;
+ 427   3            FEARL = (sector_address) & 0xFF;
+ 428   3            sector_addresstmp=sector_address;
+ 429   3            
+ 430   3            //Check Power stable by LVI 
+ 431   3            LVICR &= ~0x20;
+ 432   3            if((LVICR & 0x20) == 0x00)
+ 433   3            {
+ 434   4              // Check User_ID1/2
+ 435   4              if(User_ID == FLASH_USER_ID)
+ 436   4              {
+ 437   5                // Check valid of Flash Sector Address range
+ 438   5                if( (sector_address>=(unsigned long)target_addr_start) && (sector_address <= (unsigned long)target_ad
+             -dr_end) )
+ 439   5                {
+ 440   6                  if((key ^ FLASH_XOR) == FLASH_KEY)
+ 441   6                  {
+ 442   7      #if A96T418_MODE==0
+ 443   7                    //write data load   
+ 444   7                    pdt = buf;
+ 445   7                      
+ 446   7                    for(i=0;i<buf_size;i+=4){
+ 447   8                      if(!buf){
+ 448   9                        pdt=(unsigned char *)&pdtBuf; //for prewrite 0x00
+ 449   9                      }
+ 450   8                      sector_addresstmp=sector_address+i;
+ 451   8                      FEDR0=*pdt++;
+ 452   8                      FEDR1=*pdt++;
+ 453   8                      FEDR2=*pdt++;
+ 454   8                      FEDR3=*pdt++;
+ 455   8                      P2IO|=0x1;
+ 456   8                      P20=1;
+ 457   8                      FECR=0x0A; // Start write.   //nFERST, WRITE
+ 458   8                      _nop_(); //one nop recommended
+ 459   8                      while ( !( FESR & 0x80));       //PEVBSY
+ 460   8                      P20=0;
+ 461   8                      _nop_();
+ 462   8                    } 
+ 463   7      #endif              
+ 464   7      #if A96T418_MODE==1
+                            // Flase Write
+                            FECR = 0x0B;            // Start program.
+                            _nop_();//Dummy instruction, This instruction must be needed.           
+                            while ( !( FESR & 0x80));       //
+                            _nop_();
+              #endif  
+ 471   7                  }
+ 472   6      
+ 473   6                  FEMR = 0x00;            //
+ 474   6                  Flash_Exit();                 // Set flash to normal mode.
+ 475   6                  //verify data
+ 476   6                  pdt = buf;
+ 477   6      //            for(i = 0; i < buf_size; i++)
+ 478   6      //            {             
+ 479   6      //              if(rom_addr[sector_address + i] != *pdt)
+ 480   6      //              {
+ 481   6      //                ret = 4;
+ 482   6      //                break;
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 9   
+
+ 483   6      //              }
+ 484   6      //              pdt++;
+ 485   6      //            }
+ 486   6                }
+ 487   5                else
+ 488   5                  ret=0x80; //address range Failure
+ 489   5              }
+ 490   4              else
+ 491   4                ret=0x80;
+ 492   4      
+ 493   4            }
+ 494   3            else
+ 495   3            {
+ 496   4              ret = 1;//LVI error
+ 497   4            }
+ 498   3            Flash_Exit();                 // Set flash to normal mode.
+ 499   3            // Set Flash Sector Address as Dummy address
+ 500   3            FEARH = (FLASH_ADDR_DUMMY >> 16) & 0x0f;  //Flash Sector Address High Register
+ 501   3            FEARM = (FLASH_ADDR_DUMMY >> 8) & 0xff;   //Flash Sector Address Middle Register
+ 502   3            FEARL = (FLASH_ADDR_DUMMY >> 0) & 0xff;   //Flash Sector Address Low Register
+ 503   3          }
+ 504   2          else 
+ 505   2            ret=0x80; //address range Failure
+ 506   2            
+ 507   2        }
+ 508   1        else 
+ 509   1          ret=0x80; //
+ 510   1        LVICR = tmp2;
+ 511   1        //IE = tmp; 
+ 512   1        return ret;
+ 513   1      }
+ 514          
+ 515          
+ 516          /**
+ 517          * @brief  Read operation of flash memory.
+ 518          * @param    sector_address  This parameter contains the address of Flash memory.
+ 519          *
+ 520          *         - address range : 32kbytes(0x0 ~ 0x7FFF)
+ 521          * @param    size  This parameter contains the size of reading Flash data.
+ 522          * @param    buf   This parameter contains the data to read flash memory.
+ 523          * @return NONE
+ 524          */
+ 525          void Read_Flash(unsigned int sector_address, unsigned int buf_size, unsigned char *buf)
+ 526          {
+ 527   1        unsigned char code *rom_addr=0x0000;
+ 528   1        unsigned int i = 0;
+ 529   1      
+ 530   1        for(i = 0; i < buf_size; i++)
+ 531   1        {
+ 532   2          buf[i] = rom_addr[sector_address + i];
+ 533   2        }
+ 534   1      }
+ 535          
+ 536          volatile unsigned long checksum=0;
+ 537          uint16_t FEARML_addr_before, FEARML1_addr_before;
+ 538          uint16_t FEARML_addr_after, FEARML1_addr_after;
+ 539          uint32_t Flash_CheckSum(uint16_t startaddr, uint16_t endaddr)
+ 540          {
+ 541   1        
+ 542   1        checksum=0;
+ 543   1        Flash_Enter();
+ 544   1        
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 10  
+
+ 545   1        // checksum
+ 546   1        if(startaddr>endaddr) //Full code checksum 
+ 547   1        {
+ 548   2      
+ 549   2          FEMR = 0x81;  // Select flash and enable control. //FSEL, FEEN
+ 550   2          FETR = 0x08;  // Reset page buffer.(from T336)
+ 551   2          FECR = 0x06;  // Start auto-verify of Flash, Reset checksum
+ 552   2          _nop_();
+ 553   2          while ( !( FESR & 0x80));
+ 554   2          _nop_();
+ 555   2        }
+ 556   1        else // code range checksum 
+ 557   1        {
+ 558   2          // Checksum start address
+ 559   2          FEARM = startaddr>>8; 
+ 560   2          FEARL   = startaddr&0xFF; 
+ 561   2          FEARM1 = endaddr>>8; 
+ 562   2          FEARL1  = endaddr&0xFF; 
+ 563   2          FEARML_addr_before=(FEARM<<8)|FEARL;
+ 564   2          FEARML1_addr_before=(FEARM1<<8)|FEARL1;
+ 565   2          FEMR = 0x81;  // Select flash and enable control.
+ 566   2          FETR = 0x00;  // test register (from T356)
+ 567   2          FECR = 0x06;  // Start auto-verify of Flash, Reset checksum
+ 568   2          _nop_();
+ 569   2          while ( !( FESR & 0x80));
+ 570   2          _nop_();
+ 571   2        }
+ 572   1      
+ 573   1      #if A96T418_MODE==1
+                checksum=FEARH;
+                checksum<<=8;
+                checksum|=FEARM;
+                checksum<<=8;
+                checksum|=FEARL;
+              #endif
+ 580   1      #if A96T418_MODE==0
+ 581   1        checksum=CHECKSUMH;
+ 582   1        checksum<<=8;
+ 583   1        checksum|=CHECKSUMM;
+ 584   1        checksum<<=8;
+ 585   1        checksum|=CHECKSUML;
+ 586   1      
+ 587   1      #endif  
+ 588   1        
+ 589   1        Flash_Exit();
+ 590   1        FEARML_addr_after=(FEARM<<8)|FEARL;
+ 591   1        FEARML1_addr_after=(FEARM1<<8)|FEARL1;
+ 592   1        return checksum;
+ 593   1      }
+ 594          
+ 595          
+ 596          /* --------------------------------- End Of File ------------------------------ */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3781    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    111    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+C51 COMPILER V9.60.0.0   a96T428_FLASH                                                     11/20/2024 17:19:27 PAGE 11  
+
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

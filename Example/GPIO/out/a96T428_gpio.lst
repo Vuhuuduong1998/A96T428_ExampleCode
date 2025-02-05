@@ -1,0 +1,903 @@
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE A96T428_GPIO
+OBJECT MODULE PLACED IN .\out\a96T428_gpio.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE ..\..\Driver\a96T428_gpio.c LARGE OPTIMIZE(9,SPEED) BROWSE INCDIR(..\..\
+                    -Driver;.\src) DEBUG OBJECTEXTEND PRINT(.\out\a96T428_gpio.lst) TABS(2) OBJECT(.\out\a96T428_gpio.obj)
+
+line level    source
+
+   1          /**
+   2           *******************************************************************************
+   3           * @file        a96T428_gpio.c
+   4           * @author      ABOV R&D Division
+   5           * @brief       General Purpose Input Output
+   6           *
+   7           * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+   8           *
+   9           * This file is licensed under terms that are found in the LICENSE file
+  10           * located at Document directory.
+  11           * If this file is delivered or shared without applicable license terms,
+  12           * the terms of the BSD-3-Clause license shall be applied.
+  13           * Reference: https://opensource.org/licenses/BSD-3-Clause
+  14           ******************************************************************************/
+  15          
+  16          
+  17          /*******************************************************************************
+  18          * Included File
+  19          *******************************************************************************/
+  20          #include "a96T428_gpio.h"
+  21          
+  22          /*******************************************************************************
+  23          * Private Pre-processor Definition & Macro
+  24          *******************************************************************************/
+  25          
+  26          /*******************************************************************************
+  27          * Private Typedef
+  28          *******************************************************************************/
+  29          
+  30          /*******************************************************************************
+  31          * Private Variable
+  32          *******************************************************************************/
+  33          
+  34          /*******************************************************************************
+  35          * Private Function Prototype
+  36          *******************************************************************************/
+  37          
+  38          /*******************************************************************************
+  39          * Public Function
+  40          *******************************************************************************/
+  41          
+  42          /**
+  43          * @brief  Initialize GPIO(PCU) peripheral
+  44          * @param    None
+  45          * @return None
+  46          */
+  47          void Port_Initial(void)
+  48          {
+  49   1          // P0 setting
+  50   1          P0    = _0000_0000;   // 0 : Low, 1 : High
+  51   1          P0OD  = _0000_0000;   // 0 : Disable, 1 : Enable (Open-drain)
+  52   1          P0PU  = _1111_1111;   // 0 : Disable, 1 : Enable (Pull-up)
+  53   1          P0IO  = _0000_0000;   // 0 : Input, 1 : Output
+  54   1            
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 2   
+
+  55   1          P0FSRH  = 0;    
+  56   1          P0FSRL  = 0;
+  57   1          
+  58   1      #if A96T418_MODE==1
+                  P0DB  = 0 
+                  | ( 0 << 6 )    // 00 : fx/1, 01 : fx/4, 10 : fx/4096, 11 : LSIRC (128khz)
+                  | ( 0 << 4 )    // P07
+                  | ( 0 << 3 )    // P06
+                  | ( 0 << 2 )    // P05
+                  | ( 0 << 1 )    // P04
+                  | ( 0 << 0 );   // P03
+              #endif  
+  67   1      #if A96T418_MODE==0
+  68   1          DBCONT0 = 0;
+  69   1      #endif  
+  70   1          
+  71   1          // P1 setting    
+  72   1          P1    = _0000_0000;   // 0 : Low, 1 : High
+  73   1          P1OD  = _0000_0000;   // 0 : Disable, 1 : Enable (Open-drain)
+  74   1          P1PU  = _1111_1111;   // 0 : Disable, 1 : Enable (Pull-up)
+  75   1          P1IO  = _0000_0000;   // 0 : Input, 1 : Output
+  76   1          
+  77   1          P1FSRH  = 0;
+  78   1          
+  79   1          P1FSRL  = 0;
+  80   1      
+  81   1          // P2 setting    
+  82   1          P2    = _0000_0000;   // 0 : Low, 1 : High
+  83   1          P2OD  = _0000_0000;   // 0 : Disable, 1 : Enable (Open-drain)
+  84   1          P2PU  = _1111_1111;   // 0 : Disable, 1 : Enable (Pull-up)
+  85   1          P2IO  = _0000_0000;   // 0 : Input, 1 : Output
+  86   1          
+  87   1          P2FSRL  = 0;
+  88   1          // P3 setting    
+  89   1          P3    = _0000_0000;   // 0 : Low, 1 : High
+  90   1          P3PU  = _1111_1111;   // 0 : Disable, 1 : Enable (Pull-up)
+  91   1          P3IO  = _0000_0000;   // 0 : Input, 1 : Output
+  92   1          
+  93   1          P3FSR   = 0;
+  94   1      
+  95   1      #if A96T418_MODE==1
+                  P123DB  = 0
+                  | ( 0 << 4 )    // P31
+                  | ( 0 << 3 )    // P26
+                  | ( 0 << 2 )    // P25
+                  | ( 0 << 1 )    // P12
+                  | ( 0 << 0 );   // P11
+              #endif  
+ 103   1      #if A96T418_MODE==0
+ 104   1          DBCONT1=0;
+ 105   1          DBCONT2=0;
+ 106   1          DBCONT3=0;
+ 107   1      #endif  
+ 108   1      
+ 109   1          #if A96T418_MODE==0
+ 110   1          P3OD  = _0000_0000;   // 0 : Disable, 1 : Enable (Open-drain)
+ 111   1      
+ 112   1          // P4 setting    
+ 113   1      //    P4    = _0000_0000;   // 0 : Low, 1 : High
+ 114   1      //    P4OD  = _0000_0000;   // 0 : Disable, 1 : Enable (Open-drain)
+ 115   1      //    P4PU  = _1111_1111;   // 0 : Disable, 1 : Enable (Pull-up)
+ 116   1      //    P4IO  = _0000_0000;   // 0 : Input, 1 : Output
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 3   
+
+ 117   1      //    
+ 118   1      //    P4FSRH  = 0;  
+ 119   1      //    P4FSRL  = 0;
+ 120   1      
+ 121   1          // P5 setting    
+ 122   1      //    P5    = _0000_0000;   // 0 : Low, 1 : High
+ 123   1      //    P5OD  = _0000_0000;   // 0 : Disable, 1 : Enable (Open-drain)
+ 124   1      //    P5PU  = _1111_1111;   // 0 : Disable, 1 : Enable (Pull-up)
+ 125   1      //    P5IO  = _0000_0000;   // 0 : Input, 1 : Output
+ 126   1      //    
+ 127   1      //    P5FSRH  = 0;    
+ 128   1      //    P5FSRL  = 0;
+ 129   1          #endif
+ 130   1      
+ 131   1      }
+ 132          
+ 133          /**
+ 134          * @brief  Configures the selected port(x) pins as output pin.
+ 135          * @param    port  This parameter contains the pin port
+ 136          * @param    pin   This parameter contains the pin number
+ 137          * @param    mode  This parameter contains the pin mode(Push-Pull : 0, Open-Drain :1)
+ 138          * @return None
+ 139          */
+ 140          void Port_SetOutputpin(uint8_t port, uint8_t pin, uint8_t mode)
+ 141          {
+ 142   1      
+ 143   1          switch(port)
+ 144   1          {
+ 145   2            case 0:
+ 146   2              P0IO |= (1<<pin);
+ 147   2              P0OD |= (mode<<pin);
+ 148   2            break;
+ 149   2            case 1:
+ 150   2              P1IO |= (1<<pin);
+ 151   2              P1OD |= (mode<<pin);
+ 152   2            break;
+ 153   2            case 2:
+ 154   2              P2IO |= (1<<pin);
+ 155   2              P2OD |= (mode<<pin);
+ 156   2            break;
+ 157   2            case 3:
+ 158   2              P3IO |= (1<<pin);
+ 159   2              #if A96T418_MODE==0
+ 160   2              P3OD |= (1<<pin);
+ 161   2              #endif
+ 162   2            break;
+ 163   2            #if A96T418_MODE==0
+ 164   2            case 4:
+ 165   2      //        P4IO |= (1<<pin);
+ 166   2      //        P4OD |= (mode<<pin);
+ 167   2            break;
+ 168   2            case 5:
+ 169   2      //        P5IO |= (1<<pin);
+ 170   2      //        P5OD |= (mode<<pin);
+ 171   2            break;
+ 172   2            #endif
+ 173   2      
+ 174   2            default:
+ 175   2            break;
+ 176   2          }
+ 177   1      }
+ 178          
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 4   
+
+ 179          /**
+ 180          * @brief  Configures the selected port(x) pins as input pin.
+ 181          * @param    port  This parameter contains the pin port
+ 182          * @param    pin   This parameter contains the pin number
+ 183          * @param    mode  This parameter contains the pin mode(Disable : 0, Pull-UP : 1)
+ 184          * @return None
+ 185          */
+ 186          void Port_SetInputpin(uint8_t port, uint8_t pin, uint8_t mode)
+ 187          {
+ 188   1          switch(port)
+ 189   1          {
+ 190   2            case 0:
+ 191   2              P0IO &= ~(1<<pin);
+ 192   2              P0PU |= (mode<<pin);
+ 193   2            break;
+ 194   2            case 1:
+ 195   2              P1IO &= ~(1<<pin);
+ 196   2              P1PU |= (mode<<pin);
+ 197   2            break;
+ 198   2            case 2:
+ 199   2              P2IO &= ~(1<<pin);
+ 200   2              P2PU |= (mode<<pin);
+ 201   2            break;
+ 202   2            case 3:
+ 203   2              P3IO &= ~(1<<pin);
+ 204   2              P3PU |= (mode<<pin);    
+ 205   2            break;
+ 206   2            #if A96T418_MODE==0
+ 207   2            case 4:
+ 208   2      //        P4IO &= ~(1<<pin);
+ 209   2      //        P4PU |= (mode<<pin);    
+ 210   2            break;
+ 211   2            case 5:
+ 212   2      //        P4IO &= ~(1<<pin);
+ 213   2      //        P4PU |= (mode<<pin);    
+ 214   2            break;
+ 215   2            #endif
+ 216   2            
+ 217   2            default:
+ 218   2            break;      
+ 219   2          }
+ 220   1      }
+ 221          
+ 222          /**
+ 223          * @brief  Configures the selected port(x) pins as several kinds alternative function pin.
+ 224          * @param    port  This parameter contains the pin port
+ 225          * @param    pin   This parameter contains the pin number
+ 226          * @param    val   This parameter contains the value of alternative function bit
+ 227          * @return None
+ 228          */
+ 229          void Port_SetAlterFunctionpin(uint8_t port, uint8_t pin, uint8_t val)
+ 230          {
+ 231   1        uint8_t temp_reg;
+ 232   1        
+ 233   1          switch(port)
+ 234   1          {
+ 235   2            case 0:
+ 236   2              if(pin > 0x3)
+ 237   2              {
+ 238   3                temp_reg = P0FSRH;
+ 239   3                temp_reg &= ~(0x3<<((pin-4)<<1));
+ 240   3                temp_reg |= (val<<((pin-4)<<1));
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 5   
+
+ 241   3                
+ 242   3                P0FSRH = temp_reg;
+ 243   3              }
+ 244   2              else
+ 245   2              {
+ 246   3                temp_reg = P0FSRL;
+ 247   3                temp_reg &= ~(0x3<<(pin<<1));
+ 248   3                temp_reg |= (val<<(pin<<1));
+ 249   3                
+ 250   3                P0FSRL = temp_reg;
+ 251   3              }
+ 252   2            break;
+ 253   2            case 1:
+ 254   2              if(pin > 0x3)
+ 255   2              {
+ 256   3                temp_reg = P1FSRH;
+ 257   3                temp_reg &= ~(0x3<<((pin-4)<<1));
+ 258   3                temp_reg |= (val<<((pin-4)<<1));
+ 259   3                
+ 260   3                P1FSRH = temp_reg;
+ 261   3              }
+ 262   2              else
+ 263   2              {
+ 264   3                temp_reg = P1FSRL;
+ 265   3                temp_reg &= ~(0x3<<(pin<<1));
+ 266   3                temp_reg |= (val<<(pin<<1));  
+ 267   3      
+ 268   3                P1FSRL = temp_reg;
+ 269   3              } 
+ 270   2            break;
+ 271   2            case 2:
+ 272   2              if(pin > 0x3)
+ 273   2              {
+ 274   3                temp_reg = P2FSRH;
+ 275   3                temp_reg &= ~(0x3<<((pin-4)<<1));
+ 276   3                temp_reg |= (val<<((pin-4)<<1));
+ 277   3                
+ 278   3                P2FSRH = temp_reg;
+ 279   3              }
+ 280   2              else
+ 281   2              {
+ 282   3                temp_reg = P2FSRL;
+ 283   3                temp_reg &= ~(0x3<<(pin<<1));
+ 284   3                temp_reg |= (val<<(pin<<1));  
+ 285   3      
+ 286   3                P2FSRL = temp_reg;
+ 287   3              } 
+ 288   2            break;
+ 289   2            case 3:
+ 290   2              if(val < 0x2)
+ 291   2              {
+ 292   3                temp_reg = P3FSR;
+ 293   3                temp_reg  &= ~(1<<pin);
+ 294   3                temp_reg  |= (val<<pin);
+ 295   3                
+ 296   3                P3FSR = temp_reg;
+ 297   3              }
+ 298   2            break;
+ 299   2            #if A96T418_MODE==0       
+ 300   2            case 4:
+ 301   2      //        if(pin > 0x3)
+ 302   2      //        {
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 6   
+
+ 303   2      //          temp_reg = P4FSRH;
+ 304   2      //          temp_reg &= ~(0x3<<((pin-4)<<1));
+ 305   2      //          temp_reg |= (val<<((pin-4)<<1));
+ 306   2      //          
+ 307   2      //          P4FSRH = temp_reg;
+ 308   2      //        }
+ 309   2      //        else
+ 310   2      //        {
+ 311   2      //          temp_reg = P4FSRL;
+ 312   2      //          temp_reg &= ~(0x3<<(pin<<1));
+ 313   2      //          temp_reg |= (val<<(pin<<1));  
+ 314   2      
+ 315   2      //          P4FSRL = temp_reg;
+ 316   2      //        } 
+ 317   2            break;
+ 318   2            case 5:
+ 319   2      //        if(pin > 0x3)
+ 320   2      //        {
+ 321   2      //          temp_reg = P5FSRH;
+ 322   2      //          temp_reg &= ~(0x3<<((pin-4)<<1));
+ 323   2      //          temp_reg |= (val<<((pin-4)<<1));
+ 324   2      //          
+ 325   2      //          P5FSRH = temp_reg;
+ 326   2      //        }
+ 327   2      //        else
+ 328   2      //        {
+ 329   2      //          temp_reg = P5FSRL;
+ 330   2      //          temp_reg &= ~(0x3<<(pin<<1));
+ 331   2      //          temp_reg |= (val<<(pin<<1));  
+ 332   2      
+ 333   2      //          P5FSRL = temp_reg;
+ 334   2      //        } 
+ 335   2            break;
+ 336   2            #endif
+ 337   2              
+ 338   2            default:
+ 339   2            break;      
+ 340   2          }
+ 341   1      }
+ 342          
+ 343          
+ 344          /**
+ 345          * @brief  Configures the selected port(x) pins as output high.
+ 346          * @param    port  This parameter contains the pin port
+ 347          * @param    pin   This parameter contains the pin number
+ 348          * @return None
+ 349          */
+ 350          void Port_SetOutputHighpin(uint8_t port, uint8_t pin)
+ 351          {
+ 352   1          switch(port)
+ 353   1          {
+ 354   2            case 0:
+ 355   2              P0 |= (1<<pin);
+ 356   2            break;
+ 357   2            case 1:
+ 358   2              P1 |= (1<<pin);
+ 359   2            break;
+ 360   2            case 2:
+ 361   2              P2 |= (1<<pin);
+ 362   2            break;
+ 363   2            case 3:
+ 364   2              P3 |= (1<<pin);
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 7   
+
+ 365   2            break;
+ 366   2            // #if A96T418_MODE==0        
+ 367   2      //      case 4:
+ 368   2      //        P4 |= (1<<pin);
+ 369   2      //      break;
+ 370   2      //      case 5:
+ 371   2      //        P5 |= (1<<pin);
+ 372   2      //      break;
+ 373   2            // #endif
+ 374   2            default:
+ 375   2            break;      
+ 376   2          }
+ 377   1          switch(port)
+ 378   1          {
+ 379   2            case 0:
+ 380   2              if(!(P0IO & (1<<pin)))
+ 381   2                P0IO |= (1<<pin);
+ 382   2            break;
+ 383   2            case 1:
+ 384   2              if(!(P1IO & (1<<pin)))
+ 385   2                P1IO |= (1<<pin);
+ 386   2            break;
+ 387   2            case 2:
+ 388   2              if(!(P2IO & (1<<pin)))
+ 389   2                P2IO |= (1<<pin);
+ 390   2            break;
+ 391   2            case 3:
+ 392   2              if(!(P3IO & (1<<pin)))
+ 393   2                P3IO |= (1<<pin);
+ 394   2            break;
+ 395   2            // #if A96T418_MODE==0                
+ 396   2      //      case 4:
+ 397   2      //        if(!(P4IO & (1<<pin)))
+ 398   2      //          P4IO |= (1<<pin);
+ 399   2      //      break;
+ 400   2      //      case 5:
+ 401   2      //        if(!(P5IO & (1<<pin)))
+ 402   2      //          P5IO |= (1<<pin);
+ 403   2      //      break;
+ 404   2            // #endif
+ 405   2            default:
+ 406   2            break;
+ 407   2          } 
+ 408   1      }
+ 409          
+ 410          
+ 411          /**
+ 412          * @brief  Configures the selected port(x) pins as output low.
+ 413          * @param    port  This parameter contains the pin port
+ 414          * @param    pin   This parameter contains the pin number
+ 415          * @return None
+ 416          */
+ 417          void Port_SetOutputLowpin(uint8_t port, uint8_t pin)
+ 418          { 
+ 419   1          switch(port)
+ 420   1          {
+ 421   2            case 0:
+ 422   2              P0 &= ~(1<<pin);
+ 423   2            break;
+ 424   2            case 1:
+ 425   2              P1 &= ~(1<<pin);
+ 426   2            break;
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 8   
+
+ 427   2            case 2:
+ 428   2              P2 &= ~(1<<pin);
+ 429   2            break;
+ 430   2            case 3:
+ 431   2              P3 &= ~(1<<pin);
+ 432   2            break;
+ 433   2      //      #if A96T418_MODE==0                     
+ 434   2      //      case 4:
+ 435   2      //        P4 &= ~(1<<pin);
+ 436   2      //      break;
+ 437   2      //      case 5:
+ 438   2      //        P5 &= ~(1<<pin);
+ 439   2      //      break;
+ 440   2      //      #endif
+ 441   2            default:
+ 442   2            break;      
+ 443   2          }
+ 444   1          switch(port)
+ 445   1          {
+ 446   2            case 0:
+ 447   2              if(!(P0IO & (1<<pin)))
+ 448   2                P0IO |= (1<<pin);
+ 449   2            break;
+ 450   2            case 1:
+ 451   2              if(!(P1IO & (1<<pin)))
+ 452   2                P1IO |= (1<<pin);
+ 453   2            break;
+ 454   2            case 2:
+ 455   2              if(!(P2IO & (1<<pin)))
+ 456   2                P2IO |= (1<<pin);
+ 457   2            break;
+ 458   2            case 3:
+ 459   2              if(!(P3IO & (1<<pin)))
+ 460   2                P3IO |= (1<<pin);
+ 461   2            break;
+ 462   2      //      #if A96T418_MODE==0                     
+ 463   2      //      case 4:
+ 464   2      //        if(!(P4IO & (1<<pin)))
+ 465   2      //          P4IO |= (1<<pin);
+ 466   2      //      break;
+ 467   2      //      case 5:
+ 468   2      //        if(!(P5IO & (1<<pin)))
+ 469   2      //          P5IO |= (1<<pin);
+ 470   2      //      break;
+ 471   2      //      #endif  
+ 472   2            default:
+ 473   2            break;
+ 474   2          }
+ 475   1      }
+ 476          
+ 477          
+ 478          /**
+ 479          * @brief  Configures the selected port(x) pins as output toggle.
+ 480          * @param    port  This parameter contains the pin port
+ 481          * @param    pin   This parameter contains the pin number
+ 482          * @return None
+ 483          */
+ 484          void Port_SetOutputTogglepin(uint8_t port, uint8_t pin)
+ 485          {
+ 486   1          switch(port)
+ 487   1          {
+ 488   2            case 0:
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 9   
+
+ 489   2              P0 ^= (1<<pin);
+ 490   2            break;
+ 491   2            case 1:
+ 492   2              P1 ^= (1<<pin);
+ 493   2            break;
+ 494   2            case 2:
+ 495   2              P2 ^= (1<<pin);
+ 496   2            break;
+ 497   2            case 3:
+ 498   2              P3 ^= (1<<pin);
+ 499   2            break;
+ 500   2      //      #if A96T418_MODE==0                           
+ 501   2      //      case 4:
+ 502   2      //        P4 ^= (1<<pin);
+ 503   2      //      break;
+ 504   2      //      case 5:
+ 505   2      //        P5 ^= (1<<pin);
+ 506   2      //      break;
+ 507   2      //      #endif
+ 508   2            default:
+ 509   2            break;      
+ 510   2          }
+ 511   1          switch(port)
+ 512   1          {
+ 513   2            case 0:
+ 514   2              if(!(P0IO & (1<<pin)))
+ 515   2                P0IO |= (1<<pin);
+ 516   2            break;
+ 517   2            case 1:
+ 518   2              if(!(P1IO & (1<<pin)))
+ 519   2                P1IO |= (1<<pin);
+ 520   2            break;
+ 521   2            case 2:
+ 522   2              if(!(P2IO & (1<<pin)))
+ 523   2                P2IO |= (1<<pin);
+ 524   2            break;
+ 525   2            case 3:
+ 526   2              if(!(P3IO & (1<<pin)))
+ 527   2                P3IO |= (1<<pin);
+ 528   2            break;
+ 529   2      //      #if A96T418_MODE==0     
+ 530   2      //      case 4:
+ 531   2      //        if(!(P4IO & (1<<pin)))
+ 532   2      //          P4IO |= (1<<pin);
+ 533   2      //      break;
+ 534   2      //      case 5:
+ 535   2      //        if(!(P5IO & (1<<pin)))
+ 536   2      //          P5IO |= (1<<pin);
+ 537   2      //      break;
+ 538   2      //      #endif
+ 539   2            default:
+ 540   2            break;
+ 541   2          }
+ 542   1          
+ 543   1      }
+ 544          
+ 545          
+ 546          /**
+ 547          * @brief  Get the value of selected port(x) pins as input pin.
+ 548          * @param    port  This parameter contains the pin port
+ 549          * @param    pin   This parameter contains the pin number
+ 550          * @return Value of Input pin(High : 1, Low :0)
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 10  
+
+ 551          */
+ 552          uint8_t Port_GetInputpinValue(uint8_t port, uint8_t pin)
+ 553          {
+ 554   1         uint8_t result;
+ 555   1      
+ 556   1          switch(port)
+ 557   1          {
+ 558   2            case 0:
+ 559   2              if(P0IO & (1<<pin))
+ 560   2                P0IO &= ~(1<<pin);
+ 561   2            break;
+ 562   2            case 1:
+ 563   2              if(P1IO & (1<<pin))
+ 564   2                P1IO &= ~(1<<pin);
+ 565   2            break;
+ 566   2            case 2:
+ 567   2              if(P2IO & (1<<pin))
+ 568   2                P2IO &= ~(1<<pin);
+ 569   2            break;
+ 570   2            case 3:
+ 571   2              if(P3IO & (1<<pin))
+ 572   2                P3IO &= ~(1<<pin);
+ 573   2            break;
+ 574   2      //      #if A96T418_MODE==0     
+ 575   2      //      case 4:
+ 576   2      //        if(P4IO & (1<<pin))
+ 577   2      //          P4IO &= ~(1<<pin);
+ 578   2      //      break;
+ 579   2      //      case 5:
+ 580   2      //        if(P5IO & (1<<pin))
+ 581   2      //          P5IO &= ~(1<<pin);
+ 582   2      //      break;
+ 583   2      //      #endif
+ 584   2            default:
+ 585   2            break;      
+ 586   2          }
+ 587   1        
+ 588   1          switch(port)
+ 589   1          {
+ 590   2            case 0:
+ 591   2              result = (P0 & (1<<pin)) ? 1 : 0;
+ 592   2            break;
+ 593   2            case 1:
+ 594   2              result = (P1 & (1<<pin)) ? 1 : 0;
+ 595   2            break;
+ 596   2            case 2:
+ 597   2              result = (P2 & (1<<pin)) ? 1 : 0;
+ 598   2            break;
+ 599   2            case 3:
+ 600   2              result = (P3 & (1<<pin)) ? 1 : 0;
+ 601   2            break;
+ 602   2      //      #if A96T418_MODE==0     
+ 603   2      //      case 4:
+ 604   2      //        result = (P4 & (1<<pin)) ? 1 : 0;
+ 605   2      //      break;
+ 606   2      //      case 5:
+ 607   2      //        result = (P5 & (1<<pin)) ? 1 : 0;
+ 608   2      //      break;
+ 609   2      //      #endif
+ 610   2            default:
+ 611   2            break;      
+ 612   2          }
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 11  
+
+ 613   1          
+ 614   1          return result;
+ 615   1      }
+ 616          
+ 617          /**
+ 618          * @brief  Enable the channel of external interrupt pin as input.
+ 619          * @param    channel   This parameter contains the channel of external interrupt.
+ 620          * @return None
+ 621          */
+ 622          void Port_EnableInterrupt(uint8_t channel)
+ 623          { 
+ 624   1          switch(channel)
+ 625   1          {
+ 626   2            case 0:
+ 627   2            case 1:
+ 628   2            case 2:
+ 629   2            case 3:
+ 630   2            case 4:
+ 631   2            case 5:
+ 632   2            case 6:
+ 633   2            case 7:       
+ 634   2              IE |= (1<<5);
+ 635   2            break;
+ 636   2            case 8:
+ 637   2              IE1 |= (1<<0);
+ 638   2            break;
+ 639   2            case 10:
+ 640   2              IE |= (1<<0);
+ 641   2            break;
+ 642   2            case 11:
+ 643   2              IE |= (1<<1);
+ 644   2            break;
+ 645   2            case 12:
+ 646   2              IE1 |= (1<<5);
+ 647   2            break;
+ 648   2            default:
+ 649   2            break;      
+ 650   2          }
+ 651   1      }
+ 652          
+ 653          /**
+ 654          * @brief  Disable the channel of external interrupt pin as input.
+ 655          * @param    channel   This parameter contains the channel of external interrupt.
+ 656          * @return None
+ 657          */
+ 658          void Port_DisableInterrupt(uint8_t channel)
+ 659          {
+ 660   1          switch(channel)
+ 661   1          {
+ 662   2            case 0:
+ 663   2            case 1:
+ 664   2            case 2:
+ 665   2            case 3:
+ 666   2            case 4:
+ 667   2            case 5:
+ 668   2            case 6:
+ 669   2            case 7:       
+ 670   2              IE &= ~(1<<5);
+ 671   2            break;
+ 672   2            case 8:
+ 673   2              IE1 &= ~(1<<0);
+ 674   2            break;
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 12  
+
+ 675   2            case 10:
+ 676   2              IE &= ~(1<<0);
+ 677   2            break;
+ 678   2            case 11:
+ 679   2              IE &= ~(1<<1);
+ 680   2            break;
+ 681   2            case 12:
+ 682   2              IE1 &= ~(1<<5);
+ 683   2            break;
+ 684   2            default:
+ 685   2            break;      
+ 686   2          }
+ 687   1      }
+ 688          
+ 689          
+ 690          /**
+ 691          * @brief  Configure the channel of external interrupt pin as input.
+ 692          * @param    channel   This parameter contains the channel of external interrupt.
+ 693          * @param    edge    This parameter contains the edge of external interrupt,
+ 694          *
+ 695          *       - NONE          = 0
+ 696          *       - RISING_EDGE   = 1
+ 697          *       - FALLING_EDGE  = 2
+ 698          *       - BOTH_EDGE     = 3
+ 699          * @return None
+ 700          */
+ 701          void Port_ConfigureInterrupt(uint8_t channel, uint8_t edge)
+ 702          {
+ 703   1        uint8_t temp_reg;
+ 704   1        
+ 705   1          switch(channel)
+ 706   1          {
+ 707   2            case 0:
+ 708   2            case 1:
+ 709   2            case 2:
+ 710   2            case 3:
+ 711   2              temp_reg = EIPOL0L;
+ 712   2              temp_reg &= ~(0x3<<(channel<<1));
+ 713   2              temp_reg |= (edge<<(channel<<1));
+ 714   2              
+ 715   2              EIPOL0L = temp_reg;
+ 716   2            break;
+ 717   2            case 4:
+ 718   2            case 5:
+ 719   2            case 6:
+ 720   2            case 7: 
+ 721   2              temp_reg = EIPOL0H;   
+ 722   2              temp_reg &= ~(0x3<<((channel-4)<<1));
+ 723   2              temp_reg |= (edge<<((channel-4)<<1));
+ 724   2              
+ 725   2              EIPOL0H = temp_reg;
+ 726   2            break;
+ 727   2            case 8:
+ 728   2              temp_reg = EIPOL1;      
+ 729   2              temp_reg &= ~(0x3<<0);
+ 730   2              temp_reg |= (edge<<0);
+ 731   2              
+ 732   2              EIPOL1 = temp_reg;
+ 733   2            break;
+ 734   2            case 10:
+ 735   2              temp_reg = EIPOL1;
+ 736   2              temp_reg &= ~(0x3<<2);
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 13  
+
+ 737   2              temp_reg |= (edge<<2);
+ 738   2              
+ 739   2              EIPOL1 = temp_reg;
+ 740   2            break;
+ 741   2            case 11:
+ 742   2              temp_reg = EIPOL1;
+ 743   2              temp_reg &= ~(0x3<<4);
+ 744   2              temp_reg |= (edge<<4);
+ 745   2              
+ 746   2              EIPOL1 = temp_reg;
+ 747   2            break;
+ 748   2            case 12:
+ 749   2              temp_reg = EIPOL1;
+ 750   2              temp_reg &= ~(0x3<<6);
+ 751   2              temp_reg |= (edge<<6);
+ 752   2              
+ 753   2              EIPOL1 = temp_reg;
+ 754   2            break;
+ 755   2            default:
+ 756   2            break;      
+ 757   2          }
+ 758   1      }
+ 759          
+ 760          /**
+ 761          * @brief  Get the external interrupt status.
+ 762          * @param    channel   This parameter contains the channel of external interrupt.
+ 763          * @return Value of status(interrupt occur : 1, not occur : 0)
+ 764          */
+ 765          uint8_t Port_GetInterruptStatus(uint8_t channel)
+ 766          {
+ 767   1          uint8_t result;
+ 768   1        
+ 769   1          switch(channel)
+ 770   1          {
+ 771   2            case 0:
+ 772   2            case 1:
+ 773   2            case 2:
+ 774   2            case 3:
+ 775   2            case 4:
+ 776   2            case 5:
+ 777   2            case 6:
+ 778   2            case 7:       
+ 779   2              result = (EIFLAG0 & (1<<channel)) ? 1 : 0;
+ 780   2            break;
+ 781   2            case 8:
+ 782   2              result = (EIFLAG1 & (1<<0)) ? 1 : 0;
+ 783   2            break;
+ 784   2            case 10:
+ 785   2              result = (EIFLAG1 & (1<<1)) ? 1 : 0;
+ 786   2            break;
+ 787   2            case 11:
+ 788   2              result = (EIFLAG1 & (1<<2)) ? 1 : 0;
+ 789   2            break;
+ 790   2            case 12:
+ 791   2              result = (EIFLAG1 & (1<<3)) ? 1 : 0;
+ 792   2            break;
+ 793   2            default:
+ 794   2            break;      
+ 795   2          }
+ 796   1          
+ 797   1          return result;
+ 798   1      }
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 14  
+
+ 799          
+ 800          /**
+ 801          * @brief  Clear the external interrupt status.
+ 802          * @param    channel     This parameter contains the channel of external interrupt.
+ 803          *
+ 804          *         -  EXTINT_CH0 = 0       
+ 805          *         -  EXTINT_CH1 = 1       
+ 806          *         -  EXTINT_CH2 = 2       
+ 807          *         -  EXTINT_CH3 = 3       
+ 808          *         -  EXTINT_CH4 = 4       
+ 809          *         -  EXTINT_CH5 = 5       
+ 810          *         -  EXTINT_CH6 = 6       
+ 811          *         -  EXTINT_CH7 = 7       
+ 812          *         -  EXTINT_CH8 = 8       
+ 813          *         -  EXTINT_CH9 = 9       
+ 814          *         -  EXTINT_CH10 = 10       
+ 815          *         -  EXTINT_CH11 = 11       
+ 816          *         -  EXTINT_CH12 = 12       
+ 817          *         -  EXTINT_CH_A = 15       
+ 818          * @return None
+ 819          */
+ 820          void Port_ClearInterruptStatus(uint8_t channel)
+ 821          {
+ 822   1          switch(channel)
+ 823   1          {
+ 824   2            case 0:
+ 825   2            case 1:
+ 826   2            case 2:
+ 827   2            case 3:
+ 828   2            case 4:
+ 829   2            case 5:
+ 830   2            case 6:
+ 831   2            case 7:     
+ 832   2              EIFLAG0 = ~(1<<channel);
+ 833   2            break;
+ 834   2            case 8:
+ 835   2              EIFLAG1 = ~(1<<0);
+ 836   2            break;
+ 837   2            case 10:
+ 838   2              EIFLAG1 = ~(1<<1);
+ 839   2            break;
+ 840   2            case 11:
+ 841   2              EIFLAG1 = ~(1<<2);
+ 842   2            break;
+ 843   2            case 12:
+ 844   2              EIFLAG1 = ~(1<<3);
+ 845   2            break;
+ 846   2            default:
+ 847   2            break;      
+ 848   2          }
+ 849   1      }
+ 850          
+ 851          /* --------------------------------- End Of File ------------------------------ */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1980    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+C51 COMPILER V9.60.7.0   A96T428_GPIO                                                      02/05/2025 09:26:18 PAGE 15  
+
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

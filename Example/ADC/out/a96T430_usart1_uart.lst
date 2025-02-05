@@ -1,0 +1,623 @@
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE a96T428_USART1_UART
+OBJECT MODULE PLACED IN .\out\a96T428_usart1_uart.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE ..\..\Driver\a96T428_usart1_uart.c LARGE OPTIMIZE(8,SPEED) BROWSE NOAREG
+                    -S INCDIR(..\..\Driver;.\src) DEBUG OBJECTEXTEND PRINT(.\out\a96T428_usart1_uart.lst) TABS(2) OBJECT(.\out\a96T428_usart1
+                    -_uart.obj)
+
+line level    source
+
+   1          /**
+   2           *******************************************************************************
+   3           * @file        a96T428_usart1_uart.c
+   4           * @author      ABOV R&D Division
+   5           * @brief       USART1 UART Communication
+   6           *
+   7           * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+   8           *
+   9           * This file is licensed under terms that are found in the LICENSE file
+  10           * located at Document directory.
+  11           * If this file is delivered or shared without applicable license terms,
+  12           * the terms of the BSD-3-Clause license shall be applied.
+  13           * Reference: https://opensource.org/licenses/BSD-3-Clause
+  14           ******************************************************************************/
+  15          
+  16          
+  17          /*******************************************************************************
+  18          * Included File
+  19          *******************************************************************************/
+  20          #include "a96T428_usart1_uart.h"
+  21          
+  22          /*******************************************************************************
+  23          * Private Pre-processor Definition & Macro
+  24          *******************************************************************************/
+  25          bit fRTO_FLAG_occurred=0;
+  26          
+  27          /*******************************************************************************
+  28          * Private Typedef
+  29          *******************************************************************************/
+  30          
+  31          /*******************************************************************************
+  32          * Private Variable
+  33          *******************************************************************************/
+  34          char USART1_tx_queue[ USART1_QUEUE_SIZE ];// _at_ 0x0000;
+  35          char USART1_tx_front, USART1_tx_rear;
+  36          
+  37          char USART1_rx_queue[ USART1_QUEUE_SIZE ];// _at_ 0x0010;
+  38          char USART1_rx_front, USART1_rx_rear;
+  39          /*******************************************************************************
+  40          * Private Function Prototype
+  41          *******************************************************************************/
+  42          char USART1_tx_queue_is_full()
+  43          {
+  44   1        return ( (USART1_tx_rear + 1 ) % USART1_QUEUE_SIZE == USART1_tx_front );
+  45   1      }
+  46          
+  47          char USART1_tx_queue_is_empty()
+  48          {
+  49   1        return ( USART1_tx_rear == USART1_tx_front );
+  50   1      }
+  51          
+  52          char USART1_rx_queue_is_full()
+  53          {
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 2   
+
+  54   1        return ( (USART1_rx_rear + 1 ) % USART1_QUEUE_SIZE == USART1_rx_front );
+  55   1      }
+  56          
+  57          char USART1_rx_queue_is_empty()
+  58          {
+  59   1        return ( USART1_rx_rear == USART1_rx_front );
+  60   1      }
+  61          
+  62          /*******************************************************************************
+  63          * Public Function
+  64          *******************************************************************************/
+  65          
+  66          /**
+  67          * @brief    Initialize usart peripheral(For USART & UART)
+  68          * @param   speed      This parameter contains the buadrate of uart/usart.
+  69          * @param   data_length  This parameter contains the length of data as uart/usart
+  70          *
+  71          *         - USART1_DATA_5BIT = 0
+  72          *         - USART1_DATA_6BIT = 1
+  73          *         - USART1_DATA_7BIT = 2
+  74          *         - USART1_DATA_8BIT = 3
+  75          *         - USART1_DATA_9BIT = 7
+  76          * @param   stop_bits  This parameter contains the bits of stop as uart/usart. 
+  77          *
+  78          *         - USART1_STOP_1BIT = 0
+  79          *         - USART1_STOP_2BIT = 1
+  80          * @param   parity This parameter contains the bit of parity as uart. 
+  81          *
+  82          *         - USART1_PARITY_NO = 0
+  83          *         - USART1_PARITY_EVEN = 2
+  84          *         - USART1_PARITY_ODD = 3
+  85          * @param   mode This parameter contains the enable of transmit or receive mode(uart/usart). 
+  86          *
+  87          *         - USART1_TX_RX_MODE = 0
+  88          *           - USART1_RX_MODE = 1
+  89          *         - USART1_TX_MODE = 2
+  90          * @return   None
+  91          */
+  92          void USART1_UART_Initial(uint32_t speed, uint8_t data_length, uint8_t stop_bits, uint8_t parity, uint8_t m
+             -ode)
+  93          {
+  94   1        uint32_t baudrate_tmp ;
+  95   1        uint8_t baudrate_val = 0, fpcr_val = 0;
+  96   1      
+  97   1        //uint32_t buadrate_val = 0;
+  98   1        uint8_t temp_reg, temp_reg2;
+  99   1        
+ 100   1        temp_reg = UCTRL1;
+ 101   1        temp_reg &= ~(0x3 << 6);  
+ 102   1        //operation mode : UART(default), if used USART, set USART_System_Clock_Initial() + USART_Initial();
+ 103   1        temp_reg |= ((parity << 4) | (data_length <<  1));
+ 104   1        
+ 105   1        
+ 106   1        temp_reg2 = UCTRL2;
+ 107   1        if(mode == USART1_RX_MODE)
+ 108   1          temp_reg2 |= RXE; 
+ 109   1        else if(mode == USART1_TX_MODE)
+ 110   1          temp_reg2 |= TXE;
+ 111   1        else
+ 112   1          temp_reg2 |= (RXE | TXE);
+ 113   1        
+ 114   1        temp_reg2 |= USARTEN;
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 3   
+
+ 115   1        
+ 116   1        //speed=115200; //UBAUD=7.680555556
+ 117   1        //speed=57600; //UBAUD=16.36111111
+ 118   1        //speed=38400; //UBAUD=25.04166667
+ 119   1        //speed=9600; //UBAUD=103.1666667
+ 120   1          
+ 121   1        //UCTRL2 |= (0x1 << 0); //if using Double Speed operation, Enable UCTRL2 |= (0x1 << 0)
+ 122   1        if(UCTRL2 & 0x1) //Double Speed operation(only UART)
+ 123   1        {
+ 124   2          baudrate_tmp=(Clock_GetSystemFreq() / 8 * 256 / speed ); //(Clock_GetSystemFreq() / 8 * 256 / speed  ); 
+ 125   2        }
+ 126   1        else if(UCTRL1 & 0x40) //Synchronous mode(USART)
+ 127   1        {
+ 128   2          baudrate_tmp=(Clock_GetSystemFreq() / 2 * 256 / speed ); //(Clock_GetSystemFreq() / 2 * 256 / speed  ); 
+ 129   2        }
+ 130   1        else  //Normal Speed operation
+ 131   1        {
+ 132   2          baudrate_tmp=(Clock_GetSystemFreq() / 16 * 256 / speed ); //(Clock_GetSystemFreq() / 16 * 256 / speed  )
+             -; 
+ 133   2        }
+ 134   1        baudrate_tmp=baudrate_tmp-256;  
+ 135   1        baudrate_val=(baudrate_tmp/256)&0xff;
+ 136   1        fpcr_val=(baudrate_tmp%256)&0xff; 
+ 137   1        if(fpcr_val)  //if floating error rate exist 
+ 138   1        {
+ 139   2          baudrate_val++;
+ 140   2          fpcr_val=256-fpcr_val;
+ 141   2        }
+ 142   1          
+ 143   1        if(!(UCTRL1 & 0x40)) //Not Synchronous mode(USART)
+ 144   1          USTAT |= SOFTRST;     // USART block reset
+ 145   1        
+ 146   1        UCTRL1 = temp_reg;
+ 147   1        UCTRL3 |= (stop_bits<< 2);
+ 148   1        
+ 149   1        UBAUD = baudrate_val;
+ 150   1        if(fpcr_val)
+ 151   1          USART1_CompensationBaudrate(fpcr_val, TRUE);
+ 152   1        else
+ 153   1          USART1_CompensationBaudrate(0, FALSE);
+ 154   1            
+ 155   1        UCTRL2 = temp_reg2; 
+ 156   1        _nop_();
+ 157   1      }
+ 158          
+ 159          
+ 160          /**
+ 161          * @brief    Initialize the clock of usart peripheral(For only USART)
+ 162          * @param   clock_en This parameter contains the selection of USART mode.
+ 163          *
+ 164          *         - USART1_SYNC_DISABLE = 0
+ 165          *         - USART1_SYNC_ENABLE  = 1
+ 166          * @param   mode This parameter contains the enable of transmit or receive mode(uart/usart). 
+ 167          *
+ 168          *         - USART1_SLAVE_MODE    = 0
+ 169          *         - USART1_MASTER_MODE = 1
+ 170          * @return   None
+ 171          */
+ 172          void USART1_System_Clock_Initial(uint32_t clock_en, uint8_t master_en)
+ 173          {
+ 174   1        uint8_t temp_reg, temp_reg2;
+ 175   1        
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 4   
+
+ 176   1        temp_reg = UCTRL1;
+ 177   1        temp_reg &= ~(0x3 << 6);
+ 178   1        temp_reg |= (clock_en << 6);
+ 179   1        
+ 180   1        temp_reg2 = UCTRL3;
+ 181   1        temp_reg2 &= ~(0x1 << 7);
+ 182   1        temp_reg2 |= (master_en << 7);
+ 183   1        
+ 184   1        USTAT |= SOFTRST;     // USART block reset
+ 185   1        
+ 186   1        UCTRL1 = temp_reg;
+ 187   1        UCTRL3 = temp_reg2;
+ 188   1      }
+ 189          
+ 190          /**
+ 191          * @brief    Enables or disables the USART peripheral.
+ 192          * @param   enable   This parameter contains the enable of this function. 
+ 193          *
+ 194          *         - FLASE                       = 0
+ 195          *         - TRUE                        = 1
+ 196          * @return   None
+ 197          */
+ 198          void USART1_Enable(uint8_t enable)
+ 199          {
+ 200   1          if(enable == TRUE)
+ 201   1          {
+ 202   2            UCTRL2 |= USARTEN;
+ 203   2          }
+ 204   1          else
+ 205   1          {
+ 206   2            UCTRL2 &= ~USARTEN;
+ 207   2          }
+ 208   1      }
+ 209          
+ 210          
+ 211          
+ 212          /**
+ 213          * @brief    Transmit data through the USART peripheral for polling mode.
+ 214          * @param   send_data   This parameter contains the data to transmit. 
+ 215          * @param   count    This parameter contains the number of write length.
+ 216          * @return   None
+ 217          */
+ 218          void USART1_UART_SendDataWithPolling(uint8_t *send_data, uint8_t count)
+ 219          {
+ 220   1        uint8_t i;
+ 221   1        
+ 222   1        for(i = 0; i < count; i++)
+ 223   1        {
+ 224   2          while(!(USTAT & (UDRE)));
+ 225   2          UDATA = send_data[i];
+ 226   2        }
+ 227   1      }
+ 228          
+ 229          /**
+ 230          * @brief    Transmit data through the USART peripheral for interrupt mode.
+ 231          * @param   send_data   This parameter contains the data to transmit. 
+ 232          * @return   None
+ 233          */
+ 234          void USART1_UART_SendDataWithInterrupt(uint8_t send_data)
+ 235          {
+ 236   1        if( (UCTRL2 & (UDRIE)) || (UCTRL2 & (TXCIE)))           
+ 237   1        {
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 5   
+
+ 238   2          if ( USART1_tx_queue_is_empty() == FALSE )      
+ 239   2          {
+ 240   3            while ( USART1_tx_queue_is_full() == TRUE );  
+ 241   3                                 
+ 242   3                                
+ 243   3          }
+ 244   2          USART1_ConfigureInterrupt(USART1_TX_COMPLETE_INT, FALSE);
+ 245   2          
+ 246   2          USART1_tx_queue [ USART1_tx_rear ] = send_data;       
+ 247   2          USART1_tx_rear = ++USART1_tx_rear % USART1_QUEUE_SIZE;            
+ 248   2          USART1_ConfigureInterrupt(USART1_TX_COMPLETE_INT, TRUE);
+ 249   2          
+ 250   2          UCTRL2 |= (UDRIE);  
+ 251   2        } 
+ 252   1      }
+ 253          
+ 254          /**
+ 255          * @brief    Receive data through the USART peripheral for polling mode.
+ 256          * @param   receive_data   This parameter contains the data to receive. 
+ 257          * @param   count    This parameter contains the number of receive length.
+ 258          * @return   received data
+ 259          */
+ 260          void USART1_UART_ReceiveDataWithPolling(uint8_t *receive_data, uint8_t count)
+ 261          {
+ 262   1        uint8_t i;
+ 263   1        
+ 264   1        for(i = 0; i < count; i++)
+ 265   1        {
+ 266   2          while(( USTAT & RXC)!= RXC);    // Wait Data in
+ 267   2          receive_data[i] = UDATA;
+ 268   2        }
+ 269   1        
+ 270   1      }
+ 271          
+ 272          uint8_t USART1_UART_ReceiveCheckWithPolling(uint8_t *receive_data)
+ 273          {
+ 274   1        if(( USTAT & RXC)== RXC)    // Wait Data in
+ 275   1        {
+ 276   2          *receive_data = UDATA;
+ 277   2          return 1;
+ 278   2        }
+ 279   1        else 
+ 280   1          return 0;
+ 281   1          
+ 282   1      }
+ 283          
+ 284          /**
+ 285          * @brief    Receive data through the USART peripheral for interrupt mode.
+ 286          * @param   receive_data   This parameter contains the data to receive. 
+ 287          * @return   received data
+ 288          */
+ 289          uint8_t USART1_UART_ReceiveDataWithInterrupt(void)
+ 290          {
+ 291   1        uint8_t temp;
+ 292   1        
+ 293   1        while ( USART1_rx_queue_is_empty() == TRUE ); 
+ 294   1      
+ 295   1        USART1_ConfigureInterrupt(USART1_RX_COMPLETE_INT, FALSE);
+ 296   1        temp = USART1_rx_queue [ USART1_rx_front ];
+ 297   1      
+ 298   1        USART1_rx_front = ++USART1_rx_front % USART1_QUEUE_SIZE;
+ 299   1        USART1_ConfigureInterrupt(USART1_RX_COMPLETE_INT, TRUE);
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 6   
+
+ 300   1      
+ 301   1        return temp;
+ 302   1      }
+ 303          
+ 304          uint8_t USART1_UART_ReceiveCheckWithInterrupt(uint8_t *receive_data)
+ 305          { 
+ 306   1        if( USART1_rx_queue_is_empty() == TRUE )
+ 307   1        {
+ 308   2          return 0;
+ 309   2        }
+ 310   1        else 
+ 311   1        {
+ 312   2          USART1_ConfigureInterrupt(USART1_RX_COMPLETE_INT, FALSE);
+ 313   2          *receive_data = USART1_rx_queue [ USART1_rx_front ];
+ 314   2      
+ 315   2          USART1_rx_front = ++USART1_rx_front % USART1_QUEUE_SIZE;
+ 316   2          USART1_ConfigureInterrupt(USART1_RX_COMPLETE_INT, TRUE);
+ 317   2      
+ 318   2          return 1;
+ 319   2        }
+ 320   1      }
+ 321          
+ 322          /**
+ 323          * @brief    Configure the enable or disable USART interrupt.
+ 324          * @param   flag   This parameter contains the selection of this function. 
+ 325          *
+ 326          *         - USART1_RX_COMPLETE_INT = 0
+ 327          *         - USART1_TX_COMPLETE_INT = 1
+ 328          *           - USART1_DATA_EMPTY_INT = 2
+ 329          *           - USART1_WAKEUP_INT = 3
+ 330          * @param   enable   This parameter contains the enable of this function. 
+ 331          *
+ 332          *         - FLASE                       = 0
+ 333          *         - TRUE                        = 1
+ 334          * @return   None
+ 335          */
+ 336          void USART1_ConfigureInterrupt(uint8_t flag, uint8_t enable)
+ 337          {
+ 338   1        uint8_t temp_reg, temp_reg2;
+ 339   1      
+ 340   1        if(flag == USART1_TX_COMPLETE_INT)
+ 341   1        {
+ 342   2          temp_reg = IE1;
+ 343   2          temp_reg &= ~(0x1 << 1);
+ 344   2          temp_reg |= (enable << 1);
+ 345   2          
+ 346   2          temp_reg2 = UCTRL2;
+ 347   2          temp_reg2 &= ~(0x1 << (5 + flag));
+ 348   2          temp_reg2 |= (enable << (5 + flag));
+ 349   2          
+ 350   2          IE1 = temp_reg;
+ 351   2          UCTRL2 = temp_reg2;
+ 352   2        }
+ 353   1        else if(flag == USART1_RX_COMPLETE_INT)
+ 354   1        {
+ 355   2          temp_reg = IE3;
+ 356   2          temp_reg &= ~(0x1 << 1);
+ 357   2          temp_reg |= (enable << 1);
+ 358   2          
+ 359   2          temp_reg2 = UCTRL2;
+ 360   2          temp_reg2 &= ~(0x1 << (5 + flag));
+ 361   2          temp_reg2 |= (enable << (5 + flag));
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 7   
+
+ 362   2          
+ 363   2          IE3 = temp_reg;
+ 364   2          UCTRL2 = temp_reg2;
+ 365   2        }
+ 366   1        else if(flag == USART1_DATA_EMPTY_INT)
+ 367   1        {
+ 368   2          temp_reg = UCTRL2;
+ 369   2          temp_reg &= ~(0x1 << (5 + flag));
+ 370   2          temp_reg |= (enable << (5 + flag));
+ 371   2          UCTRL2 = temp_reg;
+ 372   2        }
+ 373   1        else if(flag == USART1_WAKEUP_INT)
+ 374   1        {
+ 375   2          temp_reg = UCTRL2;
+ 376   2          temp_reg &= ~(0x1 << 4);
+ 377   2          temp_reg |= (enable << 4);
+ 378   2          UCTRL2 = temp_reg;
+ 379   2        }
+ 380   1      }
+ 381          
+ 382          /**
+ 383          * @brief    Get the USART interrupt status.
+ 384          * @return   Value of status(interrupt flag)
+ 385          */
+ 386          uint8_t USART1_GetInterruptStatus(void)
+ 387          {
+ 388   1        uint8_t result;
+ 389   1        
+ 390   1        result = USTAT;
+ 391   1        
+ 392   1        return result;
+ 393   1      }
+ 394          
+ 395          /**
+ 396          * @brief    Set the function of wake up interrupt.
+ 397          * @param   enable   This parameter contains the enable of this function. 
+ 398          *
+ 399          *         - FLASE                       = 0
+ 400          *         - TRUE    
+ 401          * @return   None
+ 402          
+ 403          */
+ 404          void USART1_ConfigureWakeUp(uint8_t enable)
+ 405          {
+ 406   1        uint8_t temp_reg;
+ 407   1        
+ 408   1        temp_reg = UCTRL2;
+ 409   1        temp_reg &= ~(1 << 4);
+ 410   1        temp_reg |= (enable << 4);
+ 411   1        
+ 412   1        UCTRL2 = temp_reg;
+ 413   1      }
+ 414          
+ 415          /**
+ 416          * @brief    Clear the flag of wake up interrupt.
+ 417          * @param      None  
+ 418          * @return   None
+ 419          
+ 420          */
+ 421          void USART1_ClearWakeUpFlag(void)
+ 422          {
+ 423   1        USTAT &= ~(1 << 4);
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 8   
+
+ 424   1      }
+ 425          
+ 426          /**
+ 427          * @brief    Set the flag of RTO(receive time out).
+ 428          * @param   enable   This parameter contains the enable of this function. 
+ 429          *
+ 430          *         - FLASE                       = 0
+ 431          *         - TRUE    
+ 432          * @return   None
+ 433          
+ 434          */
+ 435          
+ 436          void USART1_ConfigureRTO(uint8_t enable, uint16_t RTOCval)
+ 437          {
+ 438   1        uint8_t temp_reg;
+ 439   1      
+ 440   1        if(enable) 
+ 441   1        {
+ 442   2          temp_reg = UCTRL4;
+ 443   2          temp_reg &= ~(RTOEN);
+ 444   2          temp_reg |= (enable << 4);  
+ 445   2          UCTRL4 = temp_reg;
+ 446   2          RTOCH=RTOCval>>8;
+ 447   2          RTOCL=RTOCval&0xff;
+ 448   2        }
+ 449   1        temp_reg = UCTRL4;
+ 450   1        temp_reg &= ~(RTOEN);
+ 451   1        temp_reg |= (enable << 4);  
+ 452   1        UCTRL4 = temp_reg;
+ 453   1      }
+ 454          
+ 455          /**
+ 456          * @brief    Get the flag of RTO(receive time out).
+ 457          * @return   the value of flag
+ 458          *
+ 459          *         - FLASE                       = 0
+ 460          *         - TRUE                        = 1
+ 461          */
+ 462          uint8_t USART1_GetRTOStatus(void)
+ 463          {
+ 464   1        uint8_t result;
+ 465   1        
+ 466   1        if(UCTRL4 & RTO_FLAG)
+ 467   1        {
+ 468   2          result = 1;
+ 469   2        }
+ 470   1        else
+ 471   1        {
+ 472   2          result = 0;
+ 473   2        }
+ 474   1        
+ 475   1        return result;
+ 476   1      }
+ 477          
+ 478          void USART1_ClearRTOFlag(void)
+ 479          {
+ 480   1        uint8_t temp_reg;
+ 481   1      
+ 482   1        temp_reg = UCTRL4;
+ 483   1        temp_reg &= ~(RTOEN);
+ 484   1        temp_reg &= ~(RTO_FLAG); //before RTO_FLAG clear, RTOEN should be disabled 
+ 485   1        temp_reg |= (RTOEN);
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 9   
+
+ 486   1        UCTRL4 = temp_reg;
+ 487   1      }
+ 488          
+ 489          /**
+ 490          * @brief    Compensation the baud rate of UART(special function)
+ 491          * @param   fpcg_val   This parameter contains the floating point counter of this function. 
+ 492          * @param   enable   This parameter contains the enable of this function. 
+ 493          *
+ 494          *         - FLASE                       = 0
+ 495          *         - TRUE                        = 1
+ 496          * @return   None
+ 497          */
+ 498          void USART1_CompensationBaudrate(uint16_t fpcg_val, uint8_t enable)
+ 499          {
+ 500   1        if(enable == TRUE)
+ 501   1        {
+ 502   2          UCTRL4 |= FPCREN;
+ 503   2          FPCR = fpcg_val;
+ 504   2        }
+ 505   1        else
+ 506   1        {
+ 507   2          UCTRL4 &= ~FPCREN;
+ 508   2          FPCR = 0;
+ 509   2        }
+ 510   1      }
+ 511          
+ 512          
+ 513          //==============================================================================
+ 514          // interrupt routines
+ 515          //==============================================================================
+ 516          void USART1_RXInt_Handler_ISR() 
+ 517          { 
+ 518   1        unsigned char temp, temp2;
+ 519   1        
+ 520   1        temp    = USTAT;
+ 521   1        temp2   = UCTRL2;
+ 522   1        
+ 523   1        if(( USTAT & RXC))    // Wait Data in
+ 524   1        { 
+ 525   2        if ( USART1_rx_queue_is_full () )
+ 526   2        {
+ 527   3          if ((temp & DOR )||(temp & FE )||(temp & PE ))
+ 528   3          {
+ 529   4            USART1_rx_queue [ USART1_rx_rear ] = UDATA;
+ 530   4            USART1_rx_rear = ++USART1_rx_rear % USART1_QUEUE_SIZE;
+ 531   4          }
+ 532   3          USART1_rx_queue [ USART1_rx_rear ] = UDATA;
+ 533   3          USART1_rx_rear = ++USART1_rx_rear % USART1_QUEUE_SIZE;
+ 534   3            
+ 535   3          USART1_rx_front = USART1_rx_rear = 0; 
+ 536   3          USART1_rx_queue[ USART1_rx_front ] = 0;
+ 537   3        }
+ 538   2        else
+ 539   2        {
+ 540   3          USART1_rx_queue [ USART1_rx_rear ] = UDATA;
+ 541   3          USART1_rx_rear = ++USART1_rx_rear % USART1_QUEUE_SIZE;
+ 542   3        }
+ 543   2        }
+ 544   1        
+ 545   1        if(UCTRL4&RTOEN)
+ 546   1        {
+ 547   2          if(UCTRL4&RTO_FLAG) { 
+C51 COMPILER V9.60.7.0   a96T428_USART1_UART                                               01/09/2025 13:29:41 PAGE 10  
+
+ 548   3            UCTRL4&=~RTOEN;
+ 549   3            UCTRL4 &= ~(RTO_FLAG);  //before RTO_FLAG clear, RTOEN should be disabled 
+ 550   3            UCTRL4|=RTOEN;
+ 551   3            fRTO_FLAG_occurred=1;
+ 552   3          }
+ 553   2        }
+ 554   1      }
+ 555          
+ 556          void USART1_TXInt_Handler_ISR() 
+ 557          { 
+ 558   1        if ( USART1_tx_queue_is_empty() == TRUE )
+ 559   1        {
+ 560   2          if ( (USTAT & (TXC)) )        
+ 561   2          {
+ 562   3            UCTRL2  &= ~( (UDRIE) | (TXCIE) );
+ 563   3            USTAT &= ~( UDRE + TXC );
+ 564   3          }
+ 565   2          else                
+ 566   2          {
+ 567   3            UCTRL2  &= ~( UDRIE );                          
+ 568   3          }
+ 569   2        }
+ 570   1        else
+ 571   1        {
+ 572   2          UDATA = USART1_tx_queue [ USART1_tx_front ];
+ 573   2          USART1_tx_front = ++USART1_tx_front % USART1_QUEUE_SIZE;
+ 574   2        }
+ 575   1      }
+ 576          
+ 577          
+ 578          /* --------------------------------- End Of File ------------------------------ */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1386    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     20      34
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

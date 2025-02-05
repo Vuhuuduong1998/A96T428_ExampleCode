@@ -1,0 +1,1148 @@
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE TRIM
+OBJECT MODULE PLACED IN .\out\trim.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE src\trim.c LARGE OPTIMIZE(0,SPEED) REGFILE(.\out\a96T428_LDT1_Read.ORC) 
+                    -BROWSE INCDIR(.\src) DEBUG OBJECTEXTEND PRINT(.\out\trim.lst) TABS(2) OBJECT(.\out\trim.obj)
+
+line level    source
+
+   1          /**
+   2           *******************************************************************************
+   3           * @file        Main.c
+   4           * @author      ABOV R&D Division
+   5           * @brief       Main Example Code
+   6           *
+   7           * Copyright 2020 ABOV Semiconductor Co.,Ltd. All rights reserved.
+   8           *
+   9           * This file is licensed under terms that are found in the LICENSE file
+  10           * located at Document directory.
+  11           * If this file is delivered or shared without applicable license terms,
+  12           * the terms of the BSD-3-Clause license shall be applied.
+  13           * Reference: https://opensource.org/licenses/BSD-3-Clause
+  14           ******************************************************************************/
+  15          
+  16          /* Includes ------------------------------------------------------------------*/
+  17          #include "intrins.h"
+  18          #include "stdio.h"  
+  19          #include "delay.h"
+  20          #include "a96T428_flash.h"
+  21          #include "a96T428_gpio.h"
+  22          #include "a96T428_clock.h"
+  23          #include "a96T428_usart1_uart.h"
+  24          #include  "a96T428_flash.h" 
+  25          #include "trim.h"  
+  26          
+  27          extern void Flash_Enter(void);
+  28          
+  29          /* Private Pre-processor Definition & Macro ----------------------------------*/
+  30          /* Private Typedef -----------------------------------------------------------*/
+  31          /* Private Variable ----------------------------------------------------------*/
+  32          
+  33          #if A96T418_MODE==0
+  34          //Flash Address Min/Max value for permitted area
+  35          #define FLASH_ADDR_MIN    (0xEE00)
+  36          #define FLASH_ADDR_MAX    (0xF9FF) 
+  37          //#define FLASH_ADDR_MIN    (0x800)
+  38          //#define FLASH_ADDR_MAX    (0xFFF) 
+  39          #endif
+  40          #if A96T418_MODE==1
+              //Flash Address for used
+              #define FLASH_ADDR_MIN    (0x7F00)
+              #define FLASH_ADDR_MAX    (0x7FFF) 
+              #endif
+  45          
+  46          #define FLASH_USERMEMORY_SIZE ((uint16_t)(FLASH_ADDR_MAX-FLASH_ADDR_MIN+1))
+  47          code uint8_t codetmp[FLASH_USERMEMORY_SIZE] _at_ FLASH_ADDR_MIN;
+  48          
+  49          #if A96T418_MODE==1
+              #define FLASH_MYBUFFER_SIZE (PAGE_BUFFER_SIZE*2)
+              #endif
+  52          #if A96T418_MODE==0
+  53          #define FLASH_MYBUFFER_SIZE (SECTOR_BUFFER_SIZE+PAGE_BUFFER_SIZE)
+  54          #endif
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 2   
+
+  55          
+  56          u16 adc_data_table_bgr1v[16] _at_ 0x00;
+  57          u16 adc_diffdata_table_bgr1v[16] _at_ 0x20;
+  58          u16 adc_data_tmp[16] _at_ 0x40;
+  59          u16 adc_data_table_vdc1p5[16] _at_ 0x60;
+  60          u16 adc_diffdata_table_vdc1p5[16] _at_ 0x80;
+  61          
+  62          u16 adc_swingwidth_table_bgr1v[16] _at_ 0xA0;
+  63          u16 adc_swingwidth_table_vdc1p5[16] _at_ 0xC0;
+  64          
+  65          u32 LDT1_Trim_Table[PAGE_BUFFER_SIZE/4];
+  66          
+  67          uint8_t write_data[FLASH_MYBUFFER_SIZE] _at_ 0x100;
+  68          //uint8_t read_data[FLASH_MYBUFFER_SIZE];
+  69          //unsigned char code *read_data=0x0000;
+  70          
+  71          
+  72          /* Private Function Prototype ------------------------------------------------*/
+  73          
+  74          //------------------------------------------------------------------------------
+  75          //  Project include function code
+  76          //------------------------------------------------------------------------------
+  77          u16 BlankCheck(u16 addr, u16 Count)
+  78          {
+  79   1        unsigned char code *rom_addr = (unsigned char code *)addr;
+  80   1        u16 i, blankErrorCount=0;
+  81   1        u8 ctmp;
+  82   1        
+  83   1        for(i=0; i<Count; i++) { 
+  84   2          ctmp=*rom_addr++;
+  85   2          if(ctmp!=FLASH_BLABK_TATA)
+  86   2            blankErrorCount++;
+  87   2        }
+  88   1        return blankErrorCount;
+  89   1      }
+  90          
+  91          void DCT_Erase()
+  92          { 
+  93   1        Flash_Enter();
+  94   1      
+  95   1      
+  96   1        // TrimACC mode entry
+  97   1        FEMR2 = 0x5A;
+  98   1        FEMR2 = 0xA5;
+  99   1        FEMR = 0x91;
+ 100   1        while ( !( FESR & (0x1<<1))); //EMODE bit 
+ 101   1        
+ 102   1        FEARM = 0x06;
+ 103   1        FEARL = 0x00;
+ 104   1        FECR = 0x0A;
+ 105   1        
+ 106   1        //Wait 2ms
+ 107   1        _nop_();
+ 108   1        while ( !( FESR & 0x80));
+ 109   1        _nop_();
+ 110   1        if(BlankCheck(0x0600, PAGE_BUFFER_SIZE))
+ 111   1          while(1);
+ 112   1        NOP;
+ 113   1        Flash_Exit();                 // Set flash to normal mode.
+ 114   1      }
+ 115          
+ 116          void IF0_AREA_Erase()
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 3   
+
+ 117          {
+ 118   1        Flash_Enter();
+ 119   1      
+ 120   1        // IfACC mode entry
+ 121   1        FEMR2 = 0x66;
+ 122   1        FEMR2 = 0x99;
+ 123   1        FEMR =0x91; // 0x95;
+ 124   1      
+ 125   1        FEARM = 0x00;
+ 126   1        FEARL = 0x00;
+ 127   1        FECR = 0x0A;
+ 128   1        //Wait 2ms
+ 129   1        _nop_();
+ 130   1        while ( !( FESR & 0x80));
+ 131   1        _nop_();
+ 132   1        if(BlankCheck(0x0000, PAGE_BUFFER_SIZE))
+ 133   1          while(1);
+ 134   1      
+ 135   1        Flash_Exit();                 // Set flash to normal mode.
+ 136   1      }
+ 137          
+ 138          void LDT0_AREA_Erase(void)
+ 139          {
+ 140   1        Flash_Enter();
+ 141   1      
+ 142   1        // IfACC mode entry
+ 143   1        FEMR2 = 0x5A;
+ 144   1        FEMR2 = 0xA5;
+ 145   1        FEMR = 0x91;
+ 146   1        while ( !( FESR & (0x1<<1))); //EMODE bit 
+ 147   1      
+ 148   1        FEARM = 0x02;
+ 149   1        FEARL = 0x00;
+ 150   1        FECR = 0x0A;
+ 151   1      
+ 152   1        //Wait 2ms
+ 153   1        _nop_();
+ 154   1        while ( !( FESR & 0x80));
+ 155   1        _nop_();
+ 156   1        if(BlankCheck(0x0200, PAGE_BUFFER_SIZE))
+ 157   1          while(1);
+ 158   1      
+ 159   1        Flash_Exit();                 // Set flash to normal mode.  
+ 160   1      }
+ 161          
+ 162          void LDT1_AREA_Erase()
+ 163          {
+ 164   1        Flash_Enter();
+ 165   1      
+ 166   1        // TrimACC mode entry
+ 167   1        FEMR2 = 0x5A;
+ 168   1        FEMR2 = 0xA5;
+ 169   1        FEMR = 0x91;
+ 170   1        while ( !( FESR & (0x1<<1))); //EMODE bit 
+ 171   1      
+ 172   1        FEARM = 0x04;
+ 173   1        FEARL = 0x00;
+ 174   1        FECR = 0x0A;
+ 175   1      
+ 176   1        //Wait 2ms
+ 177   1        _nop_();
+ 178   1        while ( !( FESR & 0x80));
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 4   
+
+ 179   1        _nop_();
+ 180   1        if(BlankCheck(0x0400, PAGE_BUFFER_SIZE))
+ 181   1          while(1);
+ 182   1      
+ 183   1        Flash_Exit();                 // Set flash to normal mode.  
+ 184   1      }
+ 185          
+ 186          void P2_ID_WRITE()
+ 187          {
+ 188   1        u32 code *rom_addr=0;
+ 189   1        
+ 190   1        Flash_Enter();
+ 191   1        
+ 192   1        // TrimACC mode entry
+ 193   1        FEMR2 = 0x5A;
+ 194   1        FEMR2 = 0xA5;
+ 195   1        FEMR = 0xA1;
+ 196   1        while ( !( FESR & (0x1<<2))); //WMODE bit 
+ 197   1        
+ 198   1        FEARM = 0x03;
+ 199   1        FEARL = 0xF0;
+ 200   1        FEDR0 = 0xB1; // data
+ 201   1        FEDR1 = 0xFF;
+ 202   1        FEDR2 = 0xFF;
+ 203   1        FEDR3 = 0xFF;
+ 204   1        FECR = 0x0A;
+ 205   1        //Wait 2ms
+ 206   1        _nop_();
+ 207   1        while ( !( FESR & 0x80));
+ 208   1        _nop_();
+ 209   1        rom_addr=(u32 code *)0x03F0;
+ 210   1        while(*rom_addr != 0xB1FFFFFF);
+ 211   1      
+ 212   1        FEARM = 0x03;
+ 213   1        FEARL = 0xF4; //0xF0;
+ 214   1        FEDR0 = 0xB2; // data
+ 215   1        FEDR1 = 0xFF;
+ 216   1        FEDR2 = 0xFF;
+ 217   1        FEDR3 = 0xFF;
+ 218   1        FECR = 0x0A;
+ 219   1        //Wait 2ms
+ 220   1        _nop_();
+ 221   1        while ( !( FESR & 0x80));
+ 222   1        _nop_();
+ 223   1        rom_addr=(u32 code *)0x03F4;
+ 224   1        while(*rom_addr != 0xB2FFFFFF);
+ 225   1      
+ 226   1        FEARM = 0x03;
+ 227   1        FEARL = 0xF8; //0xF0;
+ 228   1        FEDR0 = 0xB3; // data
+ 229   1        FEDR1 = 0xFF;
+ 230   1        FEDR2 = 0xFF;
+ 231   1        FEDR3 = 0xFF;
+ 232   1        FECR = 0x0A;
+ 233   1        //Wait 2ms
+ 234   1        _nop_();
+ 235   1        while ( !( FESR & 0x80));
+ 236   1        _nop_();
+ 237   1        rom_addr=(u32 code *)0x03F8;
+ 238   1        while(*rom_addr != 0xB3FFFFFF);
+ 239   1      
+ 240   1        FEARM = 0x03;
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 5   
+
+ 241   1        FEARL = 0xFC; //0xF0;
+ 242   1        FEDR0 = 0xB4; // data
+ 243   1        FEDR1 = 0xFF;
+ 244   1        FEDR2 = 0xFF;
+ 245   1        FEDR3 = 0xFF;
+ 246   1        FECR = 0x0A;
+ 247   1        //Wait 2ms
+ 248   1        _nop_();
+ 249   1        while ( !( FESR & 0x80));
+ 250   1        _nop_();
+ 251   1        rom_addr=(u32 code *)0x03FC;
+ 252   1        while(*rom_addr != 0xB4FFFFFF);
+ 253   1        
+ 254   1        Flash_Exit();                 // Set flash to normal mode.  
+ 255   1        
+ 256   1      }
+ 257          
+ 258          void TRIM_TableBuffer_update(u16 Taddress, u32 Tdata)
+ 259          {
+ 260   1        unionUL unionTmp;
+ 261   1        u16 i; 
+ 262   1        u16 addr; 
+ 263   1        u16 TaddressBase; 
+ 264   1        
+ 265   1        TaddressBase=(Taddress/0x200)*0x200;
+ 266   1        
+ 267   1        for(i=0; i<2; i++) 
+ 268   1        {
+ 269   2          if(i==0) { 
+ 270   3            unionTmp.ul=Tdata;
+ 271   3            addr=Taddress;
+ 272   3          }
+ 273   2          else {
+ 274   3            unionTmp.ul=0xFFFFFF00;
+ 275   3            addr=Taddress-4;
+ 276   3          }
+ 277   2          LDT1_Trim_Table[(addr-TaddressBase)/4]=unionTmp.ul;
+ 278   2        }
+ 279   1      }
+ 280            
+ 281          
+ 282          void TRIM_WRITE_with_TRIM_TableBuffer(void)
+ 283          {
+ 284   1        u16 Taddr=0;
+ 285   1        u32 wtmp;
+ 286   1        
+ 287   1        printf("TRIM_WRITE_with_TRIM_TableBuffer : ");
+ 288   1        LDT1_AREA_Erase();
+ 289   1        Taddr=0x404;
+ 290   1        while(Taddr<0x450)
+ 291   1        {
+ 292   2          wtmp=LDT1_Trim_Table[(Taddr-0x400)/4];
+ 293   2          TRIM_WRITE(Taddr, wtmp);
+ 294   2          Taddr+=8;
+ 295   2        }
+ 296   1        
+ 297   1      }
+ 298          
+ 299          
+ 300          void TRIM_WRITE(u16 Taddress, u32 Tdata)
+ 301          {
+ 302   1        unionUL unionTmp;
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 6   
+
+ 303   1        u8 uctmp, i; 
+ 304   1        u16 addr; 
+ 305   1        static u32 wtmp, wtmp2;
+ 306   1        u32 code *rom_addr=(u32 code *)Taddress;
+ 307   1        
+ 308   1        for(i=0; i<2; i++) 
+ 309   1        {
+ 310   2          if(i==0) { 
+ 311   3            unionTmp.ul=Tdata;
+ 312   3            addr=Taddress;
+ 313   3          }
+ 314   2          else {
+ 315   3            unionTmp.ul=0xFFFFFF00;
+ 316   3            addr=Taddress-4;
+ 317   3            rom_addr-=1;
+ 318   3          }
+ 319   2          //data reverse 
+ 320   2          uctmp=unionTmp.uc[0];
+ 321   2          unionTmp.uc[0]=unionTmp.uc[3];
+ 322   2          unionTmp.uc[3]=uctmp;
+ 323   2          uctmp=unionTmp.uc[1];
+ 324   2          unionTmp.uc[1]=unionTmp.uc[2];
+ 325   2          unionTmp.uc[2]=uctmp;
+ 326   2          wtmp=unionTmp.ul;
+ 327   2          
+ 328   2          Flash_Enter();
+ 329   2          
+ 330   2          // TrimACC mode entry
+ 331   2          FEMR2 = 0x5A;
+ 332   2          FEMR2 = 0xA5;
+ 333   2          FEMR = 0xA1;
+ 334   2          while ( !( FESR & (0x1<<2))); //WMODE bit 
+ 335   2      
+ 336   2          if(1)
+ 337   2          {
+ 338   3            FEARM = addr>>8;
+ 339   3            FEARL = addr&0xff;
+ 340   3            FEDR0 = unionTmp.uc[0]; // data
+ 341   3            FEDR1 = unionTmp.uc[1];
+ 342   3            FEDR2 = unionTmp.uc[2];
+ 343   3            FEDR3 = unionTmp.uc[3];   
+ 344   3            FECR = 0x0A;
+ 345   3            //Wait 2ms
+ 346   3            _nop_();
+ 347   3            while ( !( FESR & 0x80));
+ 348   3            _nop_();
+ 349   3          }
+ 350   2          wtmp2=*rom_addr;
+ 351   2          Flash_Exit();                 // Set flash to normal mode.  
+ 352   2          if(wtmp!=wtmp2)
+ 353   2            while(1);
+ 354   2        } 
+ 355   1      }
+ 356          
+ 357          u32 TRIM_READ(u16 Taddress)
+ 358          {
+ 359   1        unionUL unionTmp;
+ 360   1        u8 uctmp; 
+ 361   1        static u32 wtmp, wtmp2;
+ 362   1        u32 code *rom_addr=(u32 code *)Taddress;
+ 363   1        bit bOCDmode=(RSTFR&OCDRF)?1:0;
+ 364   1        
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 7   
+
+ 365   1        Flash_Enter();
+ 366   1        // TrimACC mode entry
+ 367   1        if(bOCDmode)
+ 368   1        {
+ 369   2          FEMR2 = 0x5A;
+ 370   2          FEMR2 = 0xA5;
+ 371   2        }
+ 372   1        else 
+ 373   1        {
+ 374   2          rom_addr=(u32 code *)(Taddress|0xF000);
+ 375   2          FEMR2 = 0x7D; //Testen mode
+ 376   2          FEMR2 = 0x39;
+ 377   2          FETR4 = 0xD0; //Hidden_test mode
+ 378   2          FETR4 = 0xDC;
+ 379   2          FETR |= 0x20; //0x40;   //TREMAP    
+ 380   2        }
+ 381   1        wtmp=*rom_addr;
+ 382   1        Flash_Exit();                 // Set flash to normal mode.  
+ 383   1      
+ 384   1        unionTmp.ul=wtmp;
+ 385   1          
+ 386   1        //data reverse 
+ 387   1        uctmp=unionTmp.uc[0];
+ 388   1        unionTmp.uc[0]=unionTmp.uc[3];
+ 389   1        unionTmp.uc[3]=uctmp;
+ 390   1        uctmp=unionTmp.uc[1];
+ 391   1        unionTmp.uc[1]=unionTmp.uc[2];
+ 392   1        unionTmp.uc[2]=uctmp;
+ 393   1        wtmp2=unionTmp.ul;
+ 394   1      
+ 395   1        return wtmp2;
+ 396   1      }
+ 397          
+ 398          u8 ADCCLKdivide=2;// default /2 => 8MHz divide
+ 399          
+ 400          void BGREF1V_TRIM(u8 bMonitorOnly, u8 bVDCLOCKdisable)
+ 401          {
+ 402   1        u16 adc_data;
+ 403   1        u16 adc_data_target=819;
+ 404   1        u16 i, j, min_diff=0xffff, diff, utmp;
+ 405   1        u32 wtmp;
+ 406   1        s16 strim_set, min_strim_set;
+ 407   1        u8 saveFUSE_CFG3_BGRREF_1V_TRIM;
+ 408   1        u8 saveTEST_REGE; 
+ 409   1        u16 minADC=0xffff, maxADC=0;
+ 410   1      
+ 411   1        saveFUSE_CFG3_BGRREF_1V_TRIM=FUSE_CFG3_BGRREF_1V_TRIM;
+ 412   1          
+ 413   1        TEST_AR=0x19; //Test register access enable 
+ 414   1        //REF TEST signal high
+ 415   1        LDOCON = 0x10;
+ 416   1        saveTEST_REGE=TEST_REGE;
+ 417   1        if(bVDCLOCKdisable)
+ 418   1          TEST_REGE = 0xA8; //VDCLOCK disable 
+ 419   1      
+ 420   1        //ADC setting
+ 421   1        //ADCCRH |= 0x05; // Select ADC clock to fx/2 = 8MHz.
+ 422   1        ADCCRH |= 0x04; // LSB align 
+ 423   1        ADCCRH |= (ADCCLKdivide&0x3); // Select ADC clock 
+ 424   1        ADCCRL |= 0x80; // Enable ADC.
+ 425   1        //ADC channel 17 setting
+ 426   1        ADCCRL  = (ADCCRL&0xF0) | 1;
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 8   
+
+ 427   1        ADCCR4  |= 0x80;
+ 428   1        ADCCR3  = 0x1E; //sampling time 
+ 429   1      
+ 430   1        //Search
+ 431   1        //change FUSE_CAL3[3:0] -> 3ms wait
+ 432   1        //search ADC conversion value nearest to 1V 
+ 433   1        strim_set=7;  
+ 434   1        for(i=0;i<16;i++)
+ 435   1        {
+ 436   2          TEST_AR=0x28; //Trim register access enable 
+ 437   2          FUSE_CFG3_BGRREF_1V_TRIM=strim_set&0x0f; 
+ 438   2          NOP_10us_Delay(300); //3ms wait
+ 439   2          //dummy ADC 16 times 
+ 440   2          for(j=0; j<16; j++)
+ 441   2          {
+ 442   3            ADCCRL |= (1 << 6); //ADC start 
+ 443   3            while(!(ADCCRL & 0x10)); //ADC complete check 
+ 444   3            adc_data_tmp[j]=ADCDR;      
+ 445   3          }
+ 446   2          
+ 447   2          //ADC 16 times 
+ 448   2          minADC=0xffff; maxADC=0;
+ 449   2          adc_data=0;
+ 450   2          for(j=0; j<16; j++)
+ 451   2          {
+ 452   3            ADCCRL |= (1 << 6); //ADC start 
+ 453   3            while(!(ADCCRL & 0x10)); //ADC complete check 
+ 454   3            adc_data_tmp[j]=ADCDR;      
+ 455   3            adc_data += adc_data_tmp[j];  
+ 456   3            if(adc_data_tmp[j]<minADC)
+ 457   3              minADC=adc_data_tmp[j];
+ 458   3            if(adc_data_tmp[j]>maxADC)
+ 459   3              maxADC=adc_data_tmp[j];
+ 460   3          }
+ 461   2          utmp=strim_set&0x0f;
+ 462   2          adc_data/=16;
+ 463   2          if((adc_data%16)>=2)
+ 464   2            adc_data++;
+ 465   2          adc_data_table_bgr1v[utmp]=adc_data;
+ 466   2          if(adc_data>adc_data_target) { 
+ 467   3            diff=adc_data-adc_data_target;
+ 468   3          }
+ 469   2          else if(adc_data<adc_data_target){
+ 470   3            diff=adc_data_target-adc_data;
+ 471   3          }
+ 472   2          else 
+ 473   2            diff=0;
+ 474   2          adc_diffdata_table_bgr1v[utmp]=diff;
+ 475   2          if(diff<min_diff) { 
+ 476   3            min_diff=diff;
+ 477   3            min_strim_set=strim_set;
+ 478   3          }
+ 479   2          adc_swingwidth_table_bgr1v[utmp]=maxADC-minADC;
+ 480   2          strim_set--;
+ 481   2        }
+ 482   1        
+ 483   1        wtmp=min_strim_set&0x0F;
+ 484   1        wtmp|=0xFFFFFF00;
+ 485   1        if(!bMonitorOnly)
+ 486   1          TRIM_WRITE(TADDR_LDT1_BGRREF_1V_TRIM, wtmp);
+ 487   1        
+ 488   1        FUSE_CFG3_BGRREF_1V_TRIM=min_strim_set&0x0F; 
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 9   
+
+ 489   1        NOP_10us_Delay(300); //3ms wait
+ 490   1        if(FUSE_CFG3_BGRREF_1V_TRIM!=(wtmp&0xFF))
+ 491   1          NOP;
+ 492   1        if(bMonitorOnly)
+ 493   1        {
+ 494   2          printf("\r\n"); 
+ 495   2          printf("BGREF1V_TRIM :\r\n"); 
+ 496   2          printf("initial FUSE_CFG3_BGRREF_1V_TRIM=%02x \r\n", saveFUSE_CFG3_BGRREF_1V_TRIM&0xFFU); 
+ 497   2          if(bVDCLOCKdisable) 
+ 498   2            printf("VDCLOCK : VDCLOCK disable \r\n");
+ 499   2          else 
+ 500   2            printf("VDCLOCK : VDCLOCK default \r\n");
+ 501   2          printf("BGR 1V ADC (sampling time(ADCCR3)=%4u) \r\n", ADCCR3&0xFFU);
+ 502   2          printf("BGR 1V ADC data target=%u) \r\n", adc_data_target);
+ 503   2          printf("adc_data_table_bgr1v : \r\n");
+ 504   2          for(j=0; j<16; j++)
+ 505   2            printf("%4u ", adc_data_table_bgr1v[j]);
+ 506   2          printf("\r\n");
+ 507   2          printf("adc_diffdata_table_bgr1v : \r\n");
+ 508   2          for(j=0; j<16; j++)
+ 509   2            printf("%4u ", adc_diffdata_table_bgr1v[j]);
+ 510   2          printf("\r\n");
+ 511   2          printf("adc_swingwidth_table_bgr1v : \r\n");
+ 512   2          for(j=0; j<16; j++)
+ 513   2            printf("%4u ", adc_swingwidth_table_bgr1v[j]);
+ 514   2          printf("\r\n");
+ 515   2          printf("suitable FUSE_CFG3_BGRREF_1V_TRIM=%02x  \r\n", FUSE_CFG3_BGRREF_1V_TRIM&0xFFU);
+ 516   2          if(1)
+ 517   2          {
+ 518   3            //ADC 16 times 
+ 519   3            for(j=0; j<16; j++)
+ 520   3            {
+ 521   4              ADCCRL |= (1 << 6); //ADC start 
+ 522   4              while(!(ADCCRL & 0x10)); //ADC complete check 
+ 523   4              adc_data_tmp[j]=ADCDR;      
+ 524   4            }
+ 525   3          }   
+ 526   2          printf("current adc_data_tmp : \r\n");
+ 527   2          for(j=0; j<16; j++)
+ 528   2            printf("%4u ", adc_data_tmp[j]);
+ 529   2          printf("\r\n");   
+ 530   2        }
+ 531   1        TEST_AR=0x19; //Test register access enable 
+ 532   1        if(bVDCLOCKdisable)
+ 533   1          TEST_REGE=saveTEST_REGE;  
+ 534   1      
+ 535   1        NOP;
+ 536   1      }
+ 537          
+ 538          //void BGREF1V_ADC_monitor(u8 bVDCLOCKdisable)
+ 539          //{
+ 540          //  bVDCLOCKdisable=bVDCLOCKdisable;
+ 541          //  u16 adc_data;
+ 542          //  u16 adc_data_target=819;
+ 543          //  u16 i, j;//
+ 544          //  u16 minADC=0xffff, maxADC=0;
+ 545          //  u8 saveTEST_REGE; 
+ 546          //  
+ 547          //  TEST_AR=0x19; //Test register access enable 
+ 548          //  //REF TEST signal high
+ 549          //  LDOCON = 0x10;
+ 550          //  saveTEST_REGE=TEST_REGE;
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 10  
+
+ 551          //  if(bVDCLOCKdisable)
+ 552          //    TEST_REGE = 0xA8; //VDCLOCK disable 
+ 553          
+ 554          //  //ADC setting
+ 555          //  ADCCRH |= 0x05; // Select ADC clock to fx/2 = 8MHz.
+ 556          //  ADCCRL |= 0x80; // Enable ADC.
+ 557          //  //ADC channel 17 setting
+ 558          //  ADCCRL  = (ADCCRL&0xF0) | 1;
+ 559          //  ADCCR4  |= 0x80;
+ 560          //  ADCCR3  = 0x1E; //sampling time 
+ 561          //  
+ 562          //  //Search
+ 563          //  for(i=0;i<1;i++)
+ 564          //  {
+ 565          //    TEST_AR=0x28; //Trim register access enable 
+ 566          //    NOP_10us_Delay(300); //3ms wait
+ 567          //    //dummy ADC 16 times 
+ 568          //    for(j=0; j<16; j++)
+ 569          //    {
+ 570          //      ADCCRL |= (1 << 6); //ADC start 
+ 571          //      while(!(ADCCRL & 0x10)); //ADC complete check 
+ 572          //      adc_data_tmp[j]=ADCDR;      
+ 573          //    }
+ 574          //    //ADC 16 times 
+ 575          //    adc_data=0;
+ 576          //    for(j=0; j<16; j++)
+ 577          //    {
+ 578          //      ADCCRL |= (1 << 6); //ADC start 
+ 579          //      while(!(ADCCRL & 0x10)); //ADC complete check 
+ 580          //      adc_data_tmp[j]=ADCDR;      
+ 581          //      adc_data += adc_data_tmp[j];  
+ 582          //      if(adc_data_tmp[j]<minADC)
+ 583          //        minADC=adc_data_tmp[j];
+ 584          //      if(adc_data_tmp[j]>maxADC)
+ 585          //        maxADC=adc_data_tmp[j];
+ 586          //    }
+ 587          //  }
+ 588          
+ 589          //  printf("\r\n");
+ 590          //  printf("FUSE_CFG3_BGRREF_1V_TRIM=%02x \r\n", FUSE_CFG3_BGRREF_1V_TRIM&0xFFU); 
+ 591          //  if(bVDCLOCKdisable) 
+ 592          //    printf("VDCLOCK : VDCLOCK disable \r\n");
+ 593          //  else 
+ 594          //    printf("VDCLOCK : VDCLOCK default \r\n");   
+ 595          //  printf("BGR 1V ADC (sampling time(ADCCR3)=%4u) \r\n", ADCCR3&0xFFU);
+ 596          //  printf("BGR 1V ADC data target=%u) \r\n", adc_data_target);
+ 597          ////  printf("adc_data_table_bgr1v : \r\n");
+ 598          ////  for(j=0; j<16; j++)
+ 599          ////    printf("%4u ", adc_data_table_bgr1v[j]);
+ 600          ////  printf("\r\n");
+ 601          ////  printf("adc_diffdata_table_bgr1v : \r\n");
+ 602          ////  for(j=0; j<16; j++)
+ 603          ////    printf("%4u ", adc_diffdata_table_bgr1v[j]);
+ 604          ////  printf("\r\n");
+ 605          //  printf("current adc_data_tmp : \r\n");
+ 606          //  for(j=0; j<16; j++)
+ 607          //    printf("%4u ", adc_data_tmp[j]);
+ 608          //  printf("\r\n");
+ 609          //  printf("minADC=%4u, maxADC=%4u, maxADC-minADC=%4u ", minADC, maxADC, maxADC-minADC);
+ 610          //  printf("\r\n");
+ 611          
+ 612          //    NOP_10us_Delay(50000);NOP_10us_Delay(50000);
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 11  
+
+ 613          //    //NOP_10us_Delay(50000);NOP_10us_Delay(50000);
+ 614          //    //NOP_10us_Delay(50000);NOP_10us_Delay(50000);
+ 615          //  
+ 616          //  TEST_AR=0x19; //Test register access enable 
+ 617          //  if(bVDCLOCKdisable)
+ 618          //    TEST_REGE=saveTEST_REGE;  
+ 619          
+ 620          //  NOP;
+ 621          //}
+ 622          
+ 623          void VDC1P5V_TRIM(u8 bMonitorOnly)
+ 624          {
+ 625   1        u16 adc_data;
+ 626   1        u16 adc_data_target=1229;
+ 627   1        u16 i, j, min_diff=0xffff, diff, utmp;
+ 628   1        u32 wtmp;
+ 629   1        s16 strim_set, min_strim_set;
+ 630   1        u8 saveFUSE_CFG6_BMRBGR_VDC1P5V_TRIM;
+ 631   1        u16 minADC=0xffff, maxADC=0;
+ 632   1      
+ 633   1        saveFUSE_CFG6_BMRBGR_VDC1P5V_TRIM=FUSE_CFG6_BMRBGR_VDC1P5V_TRIM;
+ 634   1        
+ 635   1        TEST_AR=0x19; //Test register access enable 
+ 636   1        //ADC setting
+ 637   1        ADCCRH |= 0x05; // Select ADC clock to fx/2 = 8MHz.
+ 638   1        ADCCRL |= 0x80; // Enable ADC.
+ 639   1        //ADC channel 18 setting
+ 640   1        ADCCRL  = (ADCCRL&0xF0) | 2;
+ 641   1        ADCCR4  |= 0x80;
+ 642   1        ADCCR3  = 0x1E; //sampling time 
+ 643   1      
+ 644   1        //Search
+ 645   1        //change FUSE_CAL6[3:0] -> 3ms wait
+ 646   1        //search ADC conversion value nearest to 1V 
+ 647   1        strim_set=7;  
+ 648   1        for(i=0;i<16;i++)
+ 649   1        {
+ 650   2          TEST_AR=0x28; //Trim register access enable 
+ 651   2          FUSE_CFG6_BMRBGR_VDC1P5V_TRIM=strim_set&0x0f; 
+ 652   2          NOP_10us_Delay(300); //3ms wait
+ 653   2          //dummy ADC 16 times 
+ 654   2          for(j=0; j<16; j++)
+ 655   2          {
+ 656   3            ADCCRL |= (1 << 6); //ADC start 
+ 657   3            while(!(ADCCRL & 0x10)); //ADC complete check 
+ 658   3            adc_data_tmp[j]=ADCDR;      
+ 659   3          }
+ 660   2          
+ 661   2          //ADC 16 times 
+ 662   2          minADC=0xffff; maxADC=0;
+ 663   2          adc_data=0;
+ 664   2          for(j=0; j<16; j++)
+ 665   2          {
+ 666   3            ADCCRL |= (1 << 6); //ADC start 
+ 667   3            while(!(ADCCRL & 0x10)); //ADC complete check 
+ 668   3            adc_data_tmp[j]=ADCDR;      
+ 669   3            adc_data += adc_data_tmp[j];  
+ 670   3            if(adc_data_tmp[j]<minADC)
+ 671   3              minADC=adc_data_tmp[j];
+ 672   3            if(adc_data_tmp[j]>maxADC)
+ 673   3              maxADC=adc_data_tmp[j];     
+ 674   3          }
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 12  
+
+ 675   2          utmp=strim_set&0x0f;
+ 676   2          adc_data/=16;
+ 677   2          if((adc_data%16)>=2)
+ 678   2            adc_data++;
+ 679   2          adc_data_table_vdc1p5[utmp]=adc_data;
+ 680   2          if(adc_data>adc_data_target) { 
+ 681   3            diff=adc_data-adc_data_target;
+ 682   3          }
+ 683   2          else if(adc_data<adc_data_target){
+ 684   3            diff=adc_data_target-adc_data;
+ 685   3          }
+ 686   2          else 
+ 687   2            diff=0;
+ 688   2          adc_diffdata_table_vdc1p5[utmp]=diff;
+ 689   2          if(diff<min_diff) { 
+ 690   3            min_diff=diff;
+ 691   3            min_strim_set=strim_set;
+ 692   3          }
+ 693   2          adc_swingwidth_table_vdc1p5[utmp]=maxADC-minADC;
+ 694   2          strim_set--;
+ 695   2        }
+ 696   1      
+ 697   1        wtmp=min_strim_set&0x0F;
+ 698   1        wtmp|=0xFFFFFF00;
+ 699   1        if(!bMonitorOnly)
+ 700   1          TRIM_WRITE(TADDR_LDT1_BMRBGR_VDC1P5V_TRIM, wtmp);
+ 701   1        FUSE_CFG6_BMRBGR_VDC1P5V_TRIM=min_strim_set&0x0f; 
+ 702   1        NOP_10us_Delay(300); //3ms wait
+ 703   1        if(FUSE_CFG3_BGRREF_1V_TRIM!=(wtmp&0xFF))
+ 704   1          NOP;
+ 705   1        
+ 706   1        if(bMonitorOnly)
+ 707   1        {
+ 708   2          printf("\r\n");
+ 709   2          printf("VDC1P5V_TRIM: \r\n"); 
+ 710   2          printf("initial FUSE_CFG6_BMRBGR_VDC1P5V_TRIM=%02x \r\n", saveFUSE_CFG6_BMRBGR_VDC1P5V_TRIM&0xFFU); 
+ 711   2          printf("VDC1P15 ADC (sampling time(ADCCR3)=%4u) \r\n", ADCCR3&0xFFU); 
+ 712   2          printf("VDC1P15 ADC data target=%u) \r\n", adc_data_target);
+ 713   2          printf("adc_data_table_vdc1p5 : \r\n");
+ 714   2          for(j=0; j<16; j++)
+ 715   2            printf("%4u ", adc_data_table_vdc1p5[j]);
+ 716   2          printf("\r\n");
+ 717   2          printf("adc_diffdata_table_vdc1p5 : \r\n");
+ 718   2          for(j=0; j<16; j++)
+ 719   2            printf("%4u ", adc_diffdata_table_vdc1p5[j]);
+ 720   2          printf("\r\n");
+ 721   2          printf("adc_swingwidth_table_vdc1p5 : \r\n");
+ 722   2          for(j=0; j<16; j++)
+ 723   2            printf("%4u ", adc_swingwidth_table_vdc1p5[j]);
+ 724   2          printf("\r\n");
+ 725   2          printf("suitable FUSE_CFG6_BMRBGR_VDC1P5V_TRIM=%02x  \r\n", FUSE_CFG6_BMRBGR_VDC1P5V_TRIM&0xFFU);
+ 726   2          if(1)
+ 727   2          {
+ 728   3            //ADC 16 times 
+ 729   3            for(j=0; j<16; j++)
+ 730   3            {
+ 731   4              ADCCRL |= (1 << 6); //ADC start 
+ 732   4              while(!(ADCCRL & 0x10)); //ADC complete check 
+ 733   4              adc_data_tmp[j]=ADCDR;      
+ 734   4            }
+ 735   3          }   
+ 736   2          printf("current adc_data_tmp : \r\n");
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 13  
+
+ 737   2          for(j=0; j<16; j++)
+ 738   2          {
+ 739   3            printf("%4u ", adc_data_tmp[j]);
+ 740   3          }
+ 741   2          printf("\r\n");
+ 742   2        }
+ 743   1        NOP;
+ 744   1        
+ 745   1        NOP;
+ 746   1      }
+ 747          
+ 748          //void VDC1P5V_ADC_Monitor(void)
+ 749          //{
+ 750          //  u16 adc_data;
+ 751          //  u16 adc_data_target=1229;
+ 752          //  u16 i, j;//, min_diff=0xffff, diff, utmp;
+ 753          //  //u32 wtmp;
+ 754          //  //s16 strim_set, min_strim_set;
+ 755          //  
+ 756          //  TEST_AR=0x19; //Test register access enable 
+ 757          //  //ADC setting
+ 758          //  ADCCRH |= 0x05; // Select ADC clock to fx/2 = 8MHz.
+ 759          //  ADCCRL |= 0x80; // Enable ADC.
+ 760          //  //ADC channel 18 setting
+ 761          //  ADCCRL  = (ADCCRL&0xF0) | 2;
+ 762          //  ADCCR4  |= 0x80;
+ 763          //  ADCCR3  = 0x1E; //sampling time 
+ 764          
+ 765          //  //Search
+ 766          //  for(i=0;i<1;i++)
+ 767          //  {
+ 768          //    TEST_AR=0x28; //Trim register access enable 
+ 769          //    //dummy ADC 16 times 
+ 770          //    for(j=0; j<16; j++)
+ 771          //    {
+ 772          //      ADCCRL |= (1 << 6); //ADC start 
+ 773          //      while(!(ADCCRL & 0x10)); //ADC complete check 
+ 774          //      adc_data_tmp[j]=ADCDR;      
+ 775          //    }
+ 776          //    //ADC 16 times 
+ 777          //    adc_data=0;
+ 778          //    for(j=0; j<16; j++)
+ 779          //    {
+ 780          //      ADCCRL |= (1 << 6); //ADC start 
+ 781          //      while(!(ADCCRL & 0x10)); //ADC complete check 
+ 782          //      adc_data_tmp[j]=ADCDR;      
+ 783          //      adc_data += adc_data_tmp[j];  
+ 784          //    }
+ 785          //  }
+ 786          //  
+ 787          //  printf("\r\n");
+ 788          //  printf("FUSE_CFG6_BMRBGR_VDC1P5V_TRIM=%02x \r\n", FUSE_CFG6_BMRBGR_VDC1P5V_TRIM&0xFFU); 
+ 789          //  printf("VDC1P15 ADC (sampling time(ADCCR3)=%4u) \r\n", ADCCR3&0xFFU); 
+ 790          //  printf("VDC1P15 ADC data target=%u) \r\n", adc_data_target);
+ 791          //  printf("adc_data_table_vdc1p5 : \r\n");
+ 792          //  for(j=0; j<16; j++)
+ 793          //    printf("%4u ", adc_data_table_vdc1p5[j]);
+ 794          //  printf("\r\n");
+ 795          //  printf("adc_diffdata_table_vdc1p5 : \r\n");
+ 796          //  for(j=0; j<16; j++)
+ 797          //    printf("%4u ", adc_diffdata_table_vdc1p5[j]);
+ 798          //  printf("\r\n");
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 14  
+
+ 799          //  printf("current adc_data_tmp : \r\n");
+ 800          //  for(j=0; j<16; j++)
+ 801          //  {
+ 802          //    printf("%4u ", adc_data_tmp[j]);
+ 803          //  }
+ 804          //  printf("\r\n");
+ 805          //  NOP;
+ 806          //}
+ 807          
+ 808          void Trim_TableBuffer_monitor(u16 TaddrBase)
+ 809          {
+ 810   1        u32 wtmp;
+ 811   1        u16 Taddr=0;
+ 812   1        u8  uc;
+ 813   1        bit bOCDmode=(RSTFR&OCDRF)?1:0;
+ 814   1        
+ 815   1        if(bOCDmode)
+ 816   1        {
+ 817   2          printf("\n\r");
+ 818   2          printf("Trim_TableBuffer_monitor @%04x: \n\r", TaddrBase);
+ 819   2          Taddr=TaddrBase;
+ 820   2          while(Taddr<(TaddrBase+0x200))
+ 821   2          {
+ 822   3            printf("Taddr=%04x: ", Taddr);
+ 823   3            for(uc=0; uc<16; uc++) {
+ 824   4              wtmp=LDT1_Trim_Table[(Taddr-0x400)/4];
+ 825   4              printf("%08lx ", wtmp); 
+ 826   4              Taddr+=4;
+ 827   4            }
+ 828   3            printf("\r\n");
+ 829   3          }
+ 830   2        }
+ 831   1        else
+ 832   1        {
+ 833   2          TaddrBase = (TaddrBase|0xF000);
+ 834   2          printf("\n\r");
+ 835   2          printf("Trim_TableBuffer_monitor @%04x: \n\r", TaddrBase);
+ 836   2          Taddr=TaddrBase;
+ 837   2          while(Taddr<(TaddrBase+0x200))
+ 838   2          {
+ 839   3            printf("Taddr=%04x: ", Taddr);
+ 840   3            for(uc=0; uc<16; uc++) {
+ 841   4              wtmp=LDT1_Trim_Table[(Taddr-0xF400)/4];
+ 842   4              printf("%08lx ", wtmp); 
+ 843   4              Taddr+=4;
+ 844   4            }
+ 845   3            printf("\r\n");
+ 846   3          }
+ 847   2        }
+ 848   1      
+ 849   1      }
+ 850          
+ 851          
+ 852          void TRIM_TableBuffer_read(u16 TaddrBase)
+ 853          {
+ 854   1        u32 wtmp;
+ 855   1        u16 Taddr;
+ 856   1        bit bOCDmode=(RSTFR&OCDRF)?1:0;
+ 857   1        
+ 858   1        if(bOCDmode)
+ 859   1        {
+ 860   2          Taddr = TaddrBase/0x200*0x200;
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 15  
+
+ 861   2          
+ 862   2          while(Taddr<(TaddrBase+0x200))
+ 863   2          {
+ 864   3            wtmp=TRIM_READ(Taddr);
+ 865   3            LDT1_Trim_Table[(Taddr-0x400)/4]=wtmp;
+ 866   3            Taddr+=4;
+ 867   3          }
+ 868   2        }
+ 869   1        else
+ 870   1        {
+ 871   2          TaddrBase = (TaddrBase|0xF000);
+ 872   2          Taddr=TaddrBase/0x200*0x200;
+ 873   2          
+ 874   2          while(Taddr<(TaddrBase+0x200))
+ 875   2          {
+ 876   3            wtmp=TRIM_READ(Taddr-0xF000);
+ 877   3            LDT1_Trim_Table[(Taddr-0xF400)/4]=wtmp;
+ 878   3            Taddr+=4;
+ 879   3          }
+ 880   2        }
+ 881   1      }
+ 882            
+ 883          void TRIM_Register_monitor(void)
+ 884          {
+ 885   1        u32 wtmp;
+ 886   1        u16 Taddr=0;
+ 887   1      
+ 888   1        printf("\n\r\n");
+ 889   1        printf("TRIM_Register_monitor :\r\n");
+ 890   1        
+ 891   1        wtmp=TRIM_READ(TADDR_LDT1_BGRREF_1V_TRIM);
+ 892   1        printf("TADDR_LDT1_BGRREF_1V_TRIM=%08lx \r\n", wtmp); 
+ 893   1        printf("FUSE_CFG3_BGRREF_1V_TRIM=%02x \r\n", FUSE_CFG3_BGRREF_1V_TRIM&0xFFU); 
+ 894   1        printf("\n\r");
+ 895   1        
+ 896   1        wtmp=TRIM_READ(TADDR_LDT1_BMRBGR_VDC1P5V_TRIM);
+ 897   1        printf("TADDR_LDT1_BMRBGR_VDC1P5V_TRIM=%08lx \r\n", wtmp);  
+ 898   1        printf("FUSE_CFG6_BMRBGR_VDC1P5V_TRIM=%02x \r\n", FUSE_CFG6_BMRBGR_VDC1P5V_TRIM&0xFFU); 
+ 899   1        printf("\n\r");
+ 900   1        
+ 901   1        wtmp=TRIM_READ(TADDR_IRC32FCAL_HIGH_TRIM);
+ 902   1        printf("TADDR_IRC32FCAL_HIGH_TRIM=%08lx \r\n", wtmp); 
+ 903   1        printf("FUSE_CFG1_IRC32FCAL_HIGH_TRIM=%02x \r\n", FUSE_CFG1_IRC32FCAL_HIGH_TRIM&0xFFU); 
+ 904   1        printf("\n\r");
+ 905   1        
+ 906   1        wtmp=TRIM_READ(TADDR_IRC32FCAL_LOW_TRIM);
+ 907   1        printf("TADDR_IRC32FCAL_LOW_TRIM=%08lx \r\n", wtmp);  
+ 908   1        printf("FUSE_CFG0_IRC32FCAL_LOW_TRIM=%02x \r\n", FUSE_CFG0_IRC32FCAL_LOW_TRIM&0xFFU); 
+ 909   1        printf("\n\r");
+ 910   1      
+ 911   1        wtmp=TRIM_READ(TADDR_TIRC16FCAL_HIGH_TRIM);
+ 912   1        printf("TADDR_TIRC16FCAL_HIGH_TRIM=%08lx \r\n", wtmp);  
+ 913   1        printf("FUSE_CFG5_TIRC16FCAL_HIGH_TRIM=%02x \r\n", FUSE_CFG5_TIRC16FCAL_HIGH_TRIM&0xFFU); 
+ 914   1        printf("\n\r");
+ 915   1      
+ 916   1        wtmp=TRIM_READ(TADDR_TIRC16FCAL_LOW_TRIM);
+ 917   1        printf("TADDR_TIRC16FCAL_LOW_TRIM=%08lx \r\n", wtmp); 
+ 918   1        printf("FUSE_CFG4_TIRC16FCAL_LOW_TRIM=%02x \r\n", FUSE_CFG4_TIRC16FCAL_LOW_TRIM&0xFFU); 
+ 919   1        printf("\r\n");
+ 920   1      
+ 921   1        wtmp=TRIM_READ(TADDR_TLDO_TRIM);
+ 922   1        printf("TADDR_TLDO_TRIM=%08lx \r\n", wtmp); 
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 16  
+
+ 923   1        printf("FUSE_CFG8_TLDO_TRIM=%02x \r\n", FUSE_CFG8_TLDO_TRIM&0xFFU); 
+ 924   1        printf("\n\r");
+ 925   1        
+ 926   1      }
+ 927          
+ 928          void IRC32M_TRIM(u8 bMonitorOnly)
+ 929          {
+ 930   1        //At first, check PWM freq at sCoarsetrim_set=0, sFinetrim_set=0
+ 931   1        //PWM freq is 160kHz @ P12(PWM2O)
+ 932   1        //if not accurate, adjust sCoarsetrim_set, sFinetrim_set 
+ 933   1      
+ 934   1        //s16 sCoarsetrim_set(-64 ~ 63), sFinetrim_set(-8 ~ 7) ; range 
+ 935   1        //static s16  sCoarsetrim_set=0, sFinetrim_set=0;
+ 936   1        //static s16  sCoarsetrim_set=1, sFinetrim_set=0;
+ 937   1        //static s16  sCoarsetrim_set=-1, sFinetrim_set=0; //
+ 938   1        //static s16  sCoarsetrim_set=1, sFinetrim_set=33;
+ 939   1        //static s16  sCoarsetrim_set=0, sFinetrim_set=50;
+ 940   1        static s16  sCoarsetrim_set=0, sFinetrim_set=25;
+ 941   1      
+ 942   1        u32 wtmp;
+ 943   1        s16 high_tmp, low_tmp;
+ 944   1        
+ 945   1        TEST_AR=0x19; //Test register access enable 
+ 946   1      
+ 947   1        //Search
+ 948   1        //change FUSE_CAL1[2:0], FUSE_CAL0[7:0] -> 3ms wait
+ 949   1        //search trim value nearest to 32MHz 
+ 950   1        if(1)
+ 951   1        {
+ 952   2          TEST_AR=0x28; //Trim register access enable 
+ 953   2          
+ 954   2          high_tmp=sCoarsetrim_set>>1; //[10:8]
+ 955   2          low_tmp=sCoarsetrim_set<<7; //[7]
+ 956   2          low_tmp|=sFinetrim_set&0x7F; //[6:0]
+ 957   2      
+ 958   2          high_tmp&=0x07; //[10:8]
+ 959   2          low_tmp&=0xFF; //[7:0]
+ 960   2          
+ 961   2          FUSE_CFG1_IRC32FCAL_HIGH_TRIM=high_tmp; //[10:8]
+ 962   2          NOP_10us_Delay(300); //3ms wait
+ 963   2          FUSE_CFG0_IRC32FCAL_LOW_TRIM=low_tmp; //[7:0]
+ 964   2          NOP_10us_Delay(300); //3ms wait
+ 965   2      
+ 966   2          wtmp=high_tmp&0xFF;
+ 967   2          wtmp|=0xFFFFFF00;
+ 968   2          if(!bMonitorOnly)
+ 969   2            TRIM_WRITE(TADDR_IRC32FCAL_HIGH_TRIM, wtmp);    
+ 970   2      
+ 971   2          wtmp=low_tmp&0xFF;
+ 972   2          wtmp|=0xFFFFFF00;
+ 973   2          if(!bMonitorOnly) {
+ 974   3            TRIM_WRITE(TADDR_IRC32FCAL_LOW_TRIM, wtmp); 
+ 975   3        }
+ 976   2        
+ 977   2        if(bMonitorOnly){
+ 978   3          printf("\n\n\r");
+ 979   3          printf("IRC32M_TRIM : \n\r");
+ 980   3          printf("sCoarsetrim_set=%d, sFinetrim_set=%d \n\r", sCoarsetrim_set, sFinetrim_set);
+ 981   3          printf("FUSE_CFG1_IRC32FCAL_HIGH_TRIM=%02x \n\r", FUSE_CFG1_IRC32FCAL_HIGH_TRIM&0xFFU);
+ 982   3          printf("FUSE_CFG0_IRC32FCAL_LOW_TRIM=%02x \n\r", FUSE_CFG0_IRC32FCAL_LOW_TRIM&0xFFU);   
+ 983   3          }
+ 984   2        }
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 17  
+
+ 985   1        NOP;
+ 986   1          
+ 987   1      }
+ 988          
+ 989          void TIRC16M_TRIM(u8 bMonitorOnly)
+ 990          {
+ 991   1        static s16 sCoarsetrim_set=2;//sCoarsetrim_set(-4 ~ 3); range 
+ 992   1        static s16 sMiddletrim_set=0;//sMiddletrim_set(-8 ~ 7); range 
+ 993   1        static s16 sFinetrim_set=0;//sFinetrim_set(-4 ~ 3) ; range 
+ 994   1      
+ 995   1        s16  tCoarsetrim_set, tFinetrim_set;
+ 996   1      
+ 997   1        u32 wtmp;
+ 998   1        s16 high_temp, low_temp;
+ 999   1      
+1000   1        sCoarsetrim_set&=0x7;
+1001   1        tCoarsetrim_set=sCoarsetrim_set;
+1002   1        
+1003   1        sMiddletrim_set&=0x0F;
+1004   1        sFinetrim_set&=0x07;
+1005   1        tFinetrim_set=(sMiddletrim_set<<3)|sFinetrim_set;
+1006   1        tFinetrim_set&=0x7F;
+1007   1        
+1008   1        TEST_AR=0x19; //Test register access enable 
+1009   1          NOP_10us_Delay(300); //3ms wait
+1010   1          TEST_AR=0x28; //Trim register access enable 
+1011   1          
+1012   1          high_temp=tCoarsetrim_set>>1; //[9:8]
+1013   1          low_temp=tCoarsetrim_set<<7; //[7]
+1014   1          low_temp|=tFinetrim_set&0x7F; //[6:0]
+1015   1      
+1016   1          high_temp&=0x03; //[9:8]
+1017   1          low_temp&=0xFF; //[7:0]    
+1018   1          
+1019   1          FUSE_CFG5_TIRC16FCAL_HIGH_TRIM=high_temp; //[9:8]
+1020   1          NOP_10us_Delay(300); //3ms wait
+1021   1          FUSE_CFG4_TIRC16FCAL_LOW_TRIM=low_temp; //[7:0]
+1022   1          NOP_10us_Delay(300); //3ms wait
+1023   1      
+1024   1        wtmp=high_temp&0xFF;
+1025   1        wtmp|=0xFFFFFF00;
+1026   1        if(!bMonitorOnly)
+1027   1          TRIM_WRITE(TADDR_TIRC16FCAL_HIGH_TRIM, wtmp);
+1028   1      
+1029   1        wtmp=low_temp&0xFF;
+1030   1        wtmp|=0xFFFFFF00;
+1031   1        if(!bMonitorOnly)
+1032   1          TRIM_WRITE(TADDR_TIRC16FCAL_LOW_TRIM, wtmp);
+1033   1      
+1034   1        if(bMonitorOnly){
+1035   2          printf("\n\n\r");
+1036   2          printf("TIRC16M_TRIM : \n\r");
+1037   2          printf("tCoarsetrim_set=%d, tFinetrim_set=%d \n\r", tCoarsetrim_set, tFinetrim_set);
+1038   2          printf("FUSE_CFG5_TIRC16FCAL_HIGH_TRIM=%02x \n\r", FUSE_CFG5_TIRC16FCAL_HIGH_TRIM&0xFFU);
+1039   2          printf("FUSE_CFG4_TIRC16FCAL_LOW_TRIM=%02x \n\r", FUSE_CFG4_TIRC16FCAL_LOW_TRIM&0xFFU);
+1040   2        }
+1041   1        NOP;
+1042   1      }
+1043          
+1044          void TLDO_TRIM(u8 bMonitorOnly)
+1045          {
+1046   1        //static s16  s2p4vtrim_set(-8 ~ 7) , s4p0vtrim_set(-8 ~ 7) ; range 
+C51 COMPILER V9.60.0.0   TRIM                                                              11/20/2024 17:19:27 PAGE 18  
+
+1047   1        //static s16  s2p4vtrim_set=0x30, s4p0vtrim_set=0x07;
+1048   1        static s8  s2p4vtrim_set=7, s4p0vtrim_set=7;
+1049   1        
+1050   1        u32 wtmp;
+1051   1        s16 high_temp, low_temp, temp;
+1052   1        
+1053   1        //s2p4vtrim_set+=0x10;
+1054   1        //s2p4vtrim_set&=0xF0;
+1055   1        //s4p0vtrim_set+=0x1;
+1056   1        //s4p0vtrim_set&=0xF;
+1057   1        
+1058   1        
+1059   1        TEST_AR=0x19; //Test register access enable 
+1060   1      //    NOP_10us_Delay(300); //3ms wait
+1061   1          TEST_AR=0x28; //Trim register access enable 
+1062   1          
+1063   1          
+1064   1          high_temp=(s2p4vtrim_set<<4)&0xF0; //[7:4]
+1065   1          low_temp=s4p0vtrim_set&0x0F; //[3:0]
+1066   1          
+1067   1          temp = (high_temp | low_temp);
+1068   1          temp &= 0xff;
+1069   1          
+1070   1          FUSE_CFG8_TLDO_TRIM = temp; //[7:0]
+1071   1          NOP_10us_Delay(300); //3ms wait
+1072   1      
+1073   1        wtmp=temp&0xFF;
+1074   1        wtmp|=0xFFFFFF00;
+1075   1        if(!bMonitorOnly)
+1076   1          TRIM_WRITE(TADDR_TLDO_TRIM, wtmp);
+1077   1      
+1078   1        if(bMonitorOnly){
+1079   2          printf("\n\n\r");
+1080   2          printf("TLDO_TRIM : \n\r");
+1081   2          printf("s2p4vtrim_set=%d(%x), s4p0vtrim_set=%d(%x) \n\r", (s16)(s2p4vtrim_set/16), (s16)(s2p4vtrim_set/1
+             -6), (s16)s4p0vtrim_set, (s16)s4p0vtrim_set);
+1082   2          printf("FUSE_CFG8_TLDO_TRIM=%02x \n\r", FUSE_CFG8_TLDO_TRIM&0xFFU);
+1083   2          NOP;
+1084   2        }
+1085   1      
+1086   1        NOP;
+1087   1      }
+1088          
+1089          /* --------------------------------- End Of File ------------------------------ */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   8735    ----
+   CONSTANT SIZE    =   1604    ----
+   XDATA SIZE       =    715    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      3    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
